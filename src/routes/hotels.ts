@@ -7,6 +7,7 @@ const router = express.Router();
 router.get("/", async (req: Request, res: Response) => {
   try {
     const facilityNames = req.query.facilities as string | undefined; // 例如 "游泳池,SPA服務"
+    const keyword = req.query.keyword as string | undefined;
 
     // 先抓所有飯店 + facilities
     let query = supabase
@@ -36,6 +37,17 @@ router.get("/", async (req: Request, res: Response) => {
         ...h,
         facilities: hotelFacilitiesMap[h.id] ?? [],
       })) ?? [];
+
+    // 關鍵字搜尋（名稱 / 城市 / 地區）
+    if (keyword) {
+      const kw = keyword.trim().toLowerCase();
+      hotels = hotels.filter(
+        (h) =>
+          h.name?.toLowerCase().includes(kw) ||
+          h.city?.toLowerCase().includes(kw) ||
+          h.district?.toLowerCase().includes(kw)
+      );
+    }
 
     // 篩選勾選的設施
     if (facilityNames) {
