@@ -8,7 +8,7 @@ router.get("/", async (_req: Request, res: Response) => {
 
   if (error) {
     console.error("Supabase 查詢失敗：", error);
-    return res.status(500).json({ error: error.message });
+    return res.status(500).json({ message: "取得飯店資料失敗" });
   }
 
   res.json(data);
