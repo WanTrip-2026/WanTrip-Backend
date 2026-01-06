@@ -1,0 +1,357 @@
+openapi: 3.0.3
+
+info:
+  title: WanTrip Supabase OpenAPI
+  version: 1.0.0
+  description: 飯店訂房與付款會員 資料架構
+
+servers:
+  - url: https://supabase.wantrip.local
+    description: production
+
+components:
+  schemas:
+    HotelImage:
+      type: object
+      required: [id, hotel_id, image_url]
+      properties:
+        id:
+          type: string
+          format: uuid
+        hotel_id:
+          type: string
+          format: uuid
+          description: 對應 hotels.id
+        image_url:
+          type: string
+        sort_order:
+          type: integer
+          nullable: true
+
+    Hotel:
+      type: object
+      required: [id, name, city_id, district_id]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        city:
+          type: string
+          nullable: true
+          description: 僅為顯示用
+        district:
+          type: string
+          nullable: true
+        address:
+          type: string
+          nullable: true
+        star_rating:
+          type: integer
+          nullable: true
+        min_price:
+          type: integer
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        is_featured:
+          type: boolean
+          default: false
+          nullable: true
+        featured_order:
+          type: integer
+          nullable: true
+        latitude:
+          type: number
+          nullable: true
+        longitude:
+          type: number
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+        images:
+          type: array
+          items:
+            $ref: "#/components/schemas/HotelImage"
+          description: API層關聯帶入
+        facilities:
+          type: array
+          items:
+            type: string
+          description: 由 hotels_facilities 轉入
+
+    Room:
+      type: object
+      required: [id, hotel_id, room_type_id]
+      properties:
+        id:
+          type: string
+          format: uuid
+        hotel_id:
+          type: string
+          format: uuid
+          description: 對應 hotels.id
+        room_type_id:
+          type: string
+          format: uuid
+          description: 對應 room_types.id
+        name:
+          type: string
+          nullable: true
+        price:
+          type: integer
+          nullable: true
+        capacity:
+          type: integer
+          nullable: true
+        image_url:
+          type: string
+          nullable: true
+        inventory:
+          type: array
+          items:
+            $ref: "#/components/schemas/RoomInventory"
+          description: 庫存來自 room_inventory
+
+    RoomInventory:
+      type: object
+      required: [id, room_id, date, total_quantity, available_quantity]
+      properties:
+        id:
+          type: string
+          format: uuid
+        room_id:
+          type: string
+          format: uuid
+        date:
+          type: string
+          format: date
+        total_quantity:
+          type: integer
+        available_quantity:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    Booking:
+      type: object
+      required:
+        [
+          id,
+          profile_id,
+          hotel_id,
+          room_id,
+          check_in_date,
+          check_out_date,
+          nights,
+          guest_count,
+          total_price,
+          status,
+        ]
+      properties:
+        id:
+          type: string
+          format: uuid
+        profile_id:
+          type: string
+          format: uuid
+        hotel_id:
+          type: string
+          format: uuid
+        room_id:
+          type: string
+          format: uuid
+        check_in_date:
+          type: string
+          format: date
+        check_out_date:
+          type: string
+          format: date
+        nights:
+          type: integer
+        guest_count:
+          type: integer
+        total_price:
+          type: integer
+        status:
+          type: string
+          enum: [pending, paid, cancelled]
+          description: 與 DB enum 一致
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+        hotel:
+          $ref: "#/components/schemas/Hotel"
+          description: API回傳時關聯帶入
+        room:
+          $ref: "#/components/schemas/Room"
+        reviews:
+          type: array
+          items:
+            $ref: "#/components/schemas/Review"
+
+    Review:
+      type: object
+      required: [id, hotel_id]
+      properties:
+        id:
+          type: string
+          format: uuid
+        hotel_id:
+          type: string
+          format: uuid
+        room_type:
+          type: string
+          nullable: true
+        member_name:
+          type: string
+          nullable: true
+        member_type:
+          type: string
+          nullable: true
+        rating:
+          type: integer
+          nullable: true
+        title:
+          type: string
+          nullable: true
+        comment:
+          type: string
+          nullable: true
+        stay_date:
+          type: string
+          format: date
+          nullable: true
+
+  responses:
+    NotFound:
+      description: 查無資源
+    BadRequest:
+      description: 請求資料錯誤
+
+paths:
+  /cities:
+    get:
+      summary: 取得城市列表
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/City"
+
+  /districts:
+    get:
+      summary: 依城市取得行政區
+      parameters:
+        - name: city_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: district list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/District"
+
+  /hotels:
+    get:
+      summary: 搜尋飯店（含圖片）
+      parameters:
+        - name: city_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: star_rating
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: hotel list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Hotel"
+
+  /hotels/{hotel_id}/rooms:
+    get:
+      summary: 取得飯店房型與庫存
+      parameters:
+        - name: hotel_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: rooms
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Room"
+
+  /bookings:
+    post:
+      summary: 建立訂房
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Booking"
+      responses:
+        "200":
+          description: created
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /payments/ecpay:
+    post:
+      summary: 由 booking 建立付款單
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [booking_id]
+              properties:
+                booking_id:
+                  type: string
+                  format: uuid
+                return_url:
+                  type: string
+      responses:
+        "200":
+          description: ecpay data

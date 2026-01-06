@@ -16,7 +16,9 @@
     "@supabase/supabase-js": "^2.89.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
-    "express": "^5.2.1"
+    "express": "^5.2.1",
+    "swagger-autogen": "^2.23.7",
+    "yaml": "^2.8.2"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",

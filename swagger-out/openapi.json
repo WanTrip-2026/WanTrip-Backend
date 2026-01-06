@@ -1,0 +1,492 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "description": "飯店訂房與付款會員 資料架構",
+    "title": "WanTrip Supabase OpenAPI",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "description": "production",
+      "url": "https://supabase.wantrip.local"
+    }
+  ],
+  "paths": {
+    "/hotels": {
+      "get": {
+        "parameters": [
+          {
+            "explode": true,
+            "in": "query",
+            "name": "city_id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "style": "form"
+          },
+          {
+            "explode": true,
+            "in": "query",
+            "name": "star_rating",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "style": "form"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Hotel"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "hotel list"
+          }
+        },
+        "summary": "搜尋飯店（含圖片）"
+      }
+    },
+    "/hotels/{hotel_id}/rooms": {
+      "get": {
+        "parameters": [
+          {
+            "explode": false,
+            "in": "path",
+            "name": "hotel_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "style": "simple"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Room"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "rooms"
+          }
+        },
+        "summary": "取得飯店房型與庫存"
+      }
+    },
+    "/bookings": {
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Booking"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "created"
+          },
+          "400": {
+            "description": "請求資料錯誤"
+          }
+        },
+        "summary": "建立訂房"
+      }
+    },
+    "/payments/ecpay": {
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/_payments_ecpay_post_request"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "ecpay data"
+          }
+        },
+        "summary": "由 booking 建立付款單"
+      }
+    }
+  },
+  "components": {
+    "responses": {
+      "NotFound": {
+        "description": "查無資源"
+      },
+      "BadRequest": {
+        "description": "請求資料錯誤"
+      }
+    },
+    "schemas": {
+      "City": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": ["id", "name"],
+        "type": "object"
+      },
+      "District": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "city_id": {
+            "description": "對應 cities.id",
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": ["city_id", "id", "name"],
+        "type": "object"
+      },
+      "HotelImage": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "hotel_id": {
+            "description": "對應 hotels.id",
+            "format": "uuid",
+            "type": "string"
+          },
+          "image_url": {
+            "type": "string"
+          },
+          "sort_order": {
+            "nullable": true,
+            "type": "integer"
+          }
+        },
+        "required": ["hotel_id", "id", "image_url"],
+        "type": "object"
+      },
+      "Hotel": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "city": {
+            "description": "僅為顯示用",
+            "nullable": true,
+            "type": "string"
+          },
+          "district": {
+            "nullable": true,
+            "type": "string"
+          },
+          "address": {
+            "nullable": true,
+            "type": "string"
+          },
+          "star_rating": {
+            "nullable": true,
+            "type": "integer"
+          },
+          "min_price": {
+            "nullable": true,
+            "type": "integer"
+          },
+          "phone": {
+            "nullable": true,
+            "type": "string"
+          },
+          "description": {
+            "nullable": true,
+            "type": "string"
+          },
+          "is_featured": {
+            "default": false,
+            "nullable": true,
+            "type": "boolean"
+          },
+          "featured_order": {
+            "nullable": true,
+            "type": "integer"
+          },
+          "latitude": {
+            "nullable": true,
+            "type": "number"
+          },
+          "longitude": {
+            "nullable": true,
+            "type": "number"
+          },
+          "created_at": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "images": {
+            "description": "API層關聯帶入",
+            "items": {
+              "$ref": "#/components/schemas/HotelImage"
+            },
+            "type": "array"
+          },
+          "facilities": {
+            "description": "由 hotels_facilities 轉入",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": ["city_id", "district_id", "id", "name"],
+        "type": "object"
+      },
+      "Room": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "hotel_id": {
+            "description": "對應 hotels.id",
+            "format": "uuid",
+            "type": "string"
+          },
+          "room_type_id": {
+            "description": "對應 room_types.id",
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "nullable": true,
+            "type": "string"
+          },
+          "price": {
+            "nullable": true,
+            "type": "integer"
+          },
+          "capacity": {
+            "nullable": true,
+            "type": "integer"
+          },
+          "image_url": {
+            "nullable": true,
+            "type": "string"
+          },
+          "inventory": {
+            "description": "庫存來自 room_inventory",
+            "items": {
+              "$ref": "#/components/schemas/RoomInventory"
+            },
+            "type": "array"
+          }
+        },
+        "required": ["hotel_id", "id", "room_type_id"],
+        "type": "object"
+      },
+      "RoomInventory": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "room_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "date": {
+            "format": "date",
+            "type": "string"
+          },
+          "total_quantity": {
+            "type": "integer"
+          },
+          "available_quantity": {
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "available_quantity",
+          "date",
+          "id",
+          "room_id",
+          "total_quantity"
+        ],
+        "type": "object"
+      },
+      "Booking": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "profile_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "hotel_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "room_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "check_in_date": {
+            "format": "date",
+            "type": "string"
+          },
+          "check_out_date": {
+            "format": "date",
+            "type": "string"
+          },
+          "nights": {
+            "type": "integer"
+          },
+          "guest_count": {
+            "type": "integer"
+          },
+          "total_price": {
+            "type": "integer"
+          },
+          "status": {
+            "description": "與 DB enum 一致",
+            "enum": ["pending", "paid", "cancelled"],
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "hotel": {
+            "$ref": "#/components/schemas/Hotel"
+          },
+          "room": {
+            "$ref": "#/components/schemas/Room"
+          },
+          "reviews": {
+            "items": {
+              "$ref": "#/components/schemas/Review"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "check_in_date",
+          "check_out_date",
+          "guest_count",
+          "hotel_id",
+          "id",
+          "nights",
+          "profile_id",
+          "room_id",
+          "status",
+          "total_price"
+        ],
+        "type": "object"
+      },
+      "Review": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "hotel_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "room_type": {
+            "nullable": true,
+            "type": "string"
+          },
+          "member_name": {
+            "nullable": true,
+            "type": "string"
+          },
+          "member_type": {
+            "nullable": true,
+            "type": "string"
+          },
+          "rating": {
+            "nullable": true,
+            "type": "integer"
+          },
+          "title": {
+            "nullable": true,
+            "type": "string"
+          },
+          "comment": {
+            "nullable": true,
+            "type": "string"
+          },
+          "stay_date": {
+            "format": "date",
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": ["hotel_id", "id"],
+        "type": "object"
+      },
+      "_payments_ecpay_post_request": {
+        "properties": {
+          "booking_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "return_url": {
+            "type": "string"
+          }
+        },
+        "required": ["booking_id"],
+        "type": "object"
+      }
+    }
+  }
+}
