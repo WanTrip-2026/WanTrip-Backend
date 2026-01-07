@@ -22,10 +22,10 @@ interface EcpayTradeData {
   ConsumerInfo: ConsumerInfo;
 }
 
-const MERCHANT_ID = '2000132';
-const HASH_KEY = '5294y06JbCWpE5vM';
-const HASH_IV = 'v77hoKGq4kWxJvUe';
-const ECPAY_API_URL = 'https://ecpg-stage.ecpay.com.tw/Merchant/GetTokenbyTrade';
+const MERCHANT_ID = process.env.ECPAY_MERCHANT_ID || '';
+const HASH_KEY = process.env.ECPAY_HASH_KEY || '';
+const HASH_IV = process.env.ECPAY_HASH_IV || '';
+const ECPAY_API_URL = process.env.ECPAY_API_URL || 'https://ecpg-stage.ecpay.com.tw/Merchant/GetTokenbyTrade';
 
 function encryptEcpayData(data: string): string {
   const cipher = crypto.createCipheriv('aes-128-cbc', HASH_KEY, HASH_IV);
@@ -49,12 +49,12 @@ export const getEcpayToken = async (amount: number, tradeNo: string): Promise<an
       MerchantTradeNo: tradeNo,
       MerchantTradeDate: getFormattedTradeDate(),
       TotalAmount: amount,
-      ReturnURL: 'https://your-api.com/callback',
+      ReturnURL: process.env.ECPAY_RETURN_URL || 'https://您的域名/api/payment/callback',
       TradeDesc: 'WanTrip訂單',
       ItemName: '旅遊行程費用'
     },
     ConsumerInfo: {
-      MerchantMemberID: 'User' + Date.now(),
+      MerchantMemberID: 'user-' + Date.now(),
     }
   };
 
