@@ -1,6 +1,7 @@
 {
   "name": "wantrip_backend",
   "version": "1.0.0",
+  "type": "module",
   "description": "",
   "main": "index.js",
   "scripts": {
@@ -11,12 +12,16 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "module",
   "dependencies": {
     "@supabase/supabase-js": "^2.89.0",
+    "axios": "^1.13.2",
     "cors": "^2.8.5",
+    "crypto": "^1.0.1",
+    "crypto-js": "^4.2.0",
     "dotenv": "^17.2.3",
-    "express": "^5.2.1"
+    "ecpay_aio_nodejs": "^1.2.2",
+    "express": "^5.2.1",
+    "uuid": "^13.0.0"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
