@@ -80,10 +80,10 @@ router.post('/linepay/request', async (req: Request, res: Response) => {
           ]
         }
       ],
-      redirectUrls: {
-        confirmUrl: 'http://localhost:5173/orders/completed',
-        cancelUrl: 'http://localhost:5173/orders/checkout'
-      }
+      redirectUrls: {  
+        confirmUrl: process.env.LINE_PAY_CONFIRM_URL || 'http://localhost:5173/orders/completed',  
+        cancelUrl: process.env.LINE_PAY_CANCEL_URL || 'http://localhost:5173/orders/checkout'  
+      }  
     };
 
     const signature = LinePayService.generateSignature(uri, body, nonce);
