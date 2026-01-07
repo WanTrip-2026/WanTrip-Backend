@@ -20,11 +20,11 @@ interface EcpayPaymentConfig {
   ApiURL: string;
 }
 
-const ECPAY_CONFIG: EcpayPaymentConfig = {
-  MerchantID: '3002607',
-  HashKey: 'pwFHCqoQZGmho4w6',
-  HashIV: 'EkRm7iFT261dpevs',
-  ApiURL: 'https://ecpg-stage.ecpay.com.tw/Merchant/CreatePayment'
+export const ECPAY_CONFIG: EcpayPaymentConfig = {
+  MerchantID: process.env.ECPAY_MERCHANT_ID || '',
+  HashKey: process.env.ECPAY_HASH_KEY || '',
+  HashIV: process.env.ECPAY_HASH_IV || '',
+  ApiURL: process.env.ECPAY_API_URL || 'https://ecpg-stage.ecpay.com.tw/Merchant/CreatePayment'
 };
 
 function encryptPaymentData(data: object, key: string, iv: string): string {
