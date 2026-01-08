@@ -36,6 +36,7 @@ const LINE_PAY_CHANNEL_ID: string | undefined = process.env.LINE_PAY_CHANNEL_ID;
 const LINE_PAY_CHANNEL_SECRET: string | undefined = process.env.LINE_PAY_CHANNEL_SECRET;
 const LINE_PAY_SITE: string | undefined = process.env.LINE_PAY_SITE;
 
+
 const router: Router = Router();
 if (!LINE_PAY_CHANNEL_ID || !LINE_PAY_CHANNEL_SECRET || !LINE_PAY_SITE) {
   throw new Error('Missing required LINE PAY environment variables');
@@ -70,19 +71,13 @@ router.post('/linepay/request', async (req: Request, res: Response) => {
         {
           id: `PKG_${orderId}`,
           amount: amount,
-          products: [
-            {
-              name: productName,
-              quantity: 1,
-              price: amount
-            }
-          ]
+          products: [{ name: productName, quantity: 1, price: amount }]
         }
       ],
       redirectUrls: {  
         confirmUrl: process.env.LINE_PAY_CONFIRM_URL || 'http://localhost:5173/orders/completed',  
         cancelUrl: process.env.LINE_PAY_CANCEL_URL || 'http://localhost:5173/orders/checkout'  
-      }  
+      }
     };
 
     const signature = LinePayService.generateSignature(uri, body, nonce);
