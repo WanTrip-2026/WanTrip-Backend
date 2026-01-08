@@ -1,26 +1,39 @@
-import express, { Router, Request, Response } from 'express';
+import { Router, Request, Response } from 'express';
+import { getAioCheckoutParams, verifyCheckMacValue } from './routes/ECPayService';
 import LinePayService from './routes/LinePayService';
-import { getEcpayToken } from './routes/ECPayService';
 
-const PaymentRouter: Router = express.Router();
+const PaymentRouter: Router = Router();
 
-PaymentRouter.post('/get-token', async (req: Request, res: Response): Promise<void> => {
-    try {
-        const amount: number = Number(req.body.amount);
-        const merchantTradeNo: string = `WT${Date.now()}`;
+// 1. 取得綠界 AIO 參數
+PaymentRouter.post('/get-aio-params', (req: Request, res: Response) => {
+  try {
+    const { amount } = req.body;
+    const tradeNo = `WT${Date.now()}`;
 
-        const paymentResult = await getEcpayToken(amount, merchantTradeNo);
-        
-        res.json(paymentResult);
-    } catch (error) {
-        console.error('--- ECPay Router Error ---', error);
-        res.status(500).json({ 
-            success: false, 
-            message: 'Failed to retrieve ECPay token' 
-        });
-    }
+    const params = getAioCheckoutParams(Number(amount), tradeNo);
+    res.json({ success: true, data: params });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
 });
 
-PaymentRouter.use(LinePayService.router);
+// 2. 接收付款結果通知 (Callback)
+PaymentRouter.post('/callback', (req: Request, res: Response) => {
+  console.log('--- 收到綠界回傳 ---');
+  const payload = req.body;
+
+  if (!verifyCheckMacValue(payload)) {
+    return res.send('0|CheckMacValueVerifyFail');
+  }
+
+  if (payload.RtnCode === '1') {
+    // 這裡更新資料庫
+    console.log(`訂單 ${payload.MerchantTradeNo} 付款成功`);
+  }
+
+  res.send('1|OK');
+});
+
+PaymentRouter.use('/linepay', LinePayService.router);
 
 export default PaymentRouter;

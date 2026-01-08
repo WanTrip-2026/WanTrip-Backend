@@ -32,26 +32,25 @@ interface ConfirmBody {
   currency: string;
 }
 
-const {
-  LINE_PAY_CHANNEL_ID = '',
-  LINE_PAY_CHANNEL_SECRET = '',
-  LINE_PAY_SITE = ''
-} = process.env;
+const LINE_PAY_CHANNEL_ID: string | undefined = process.env.LINE_PAY_CHANNEL_ID;
+const LINE_PAY_CHANNEL_SECRET: string | undefined = process.env.LINE_PAY_CHANNEL_SECRET;
+const LINE_PAY_SITE: string | undefined = process.env.LINE_PAY_SITE;
 
 const router: Router = Router();
+if (!LINE_PAY_CHANNEL_ID || !LINE_PAY_CHANNEL_SECRET || !LINE_PAY_SITE) {
+  throw new Error('Missing required LINE PAY environment variables');
+}
 
 const LinePayService = {
   generateSignature(uri: string, body: object, nonce: string): string {
     const bodyString = JSON.stringify(body);
     const data = `${LINE_PAY_CHANNEL_SECRET}${uri}${bodyString}${nonce}`;
-    
     return crypto
       .createHmac('sha256', LINE_PAY_CHANNEL_SECRET)
       .update(data)
       .digest('base64');
   },
-
-  router
+  router: router
 };
 
 router.post('/linepay/request', async (req: Request, res: Response) => {
