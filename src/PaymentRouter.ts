@@ -5,7 +5,7 @@ import LinePayService from './routes/LinePayService';
 const PaymentRouter: Router = Router();
 
 // 1. 取得綠界 AIO 參數
-PaymentRouter.post('/get-aio-params', (req: Request, res: Response) => {
+PaymentRouter.post('/get-aio-params', (req, res) => {
   try {
     const { amount } = req.body;
     const tradeNo = `WT${Date.now()}`;
@@ -32,6 +32,6 @@ PaymentRouter.post('/callback', (req: Request, res: Response) => {
   res.send('1|OK');
 });
 
-PaymentRouter.use('/linepay', LinePayService.router);
+PaymentRouter.use('/', LinePayService.router);
 
 export default PaymentRouter;
