@@ -47,10 +47,11 @@ export const getAioCheckoutParams = (amount: number, tradeNo: string) => {
     TotalAmount: amount,
     TradeDesc: 'WanTrip_Booking',
     ItemName: 'WanTrip訂房服務',
-    ReturnURL: process.env.ECPAY_RETURN_URL || 'https://your-api.com/api/payment/callback',
+    ReturnURL: process.env.ECPAY_RETURN_URL || 'http://localhost:5173/orders/completed',
     ChoosePayment: 'ALL',
     EncryptType: '1',
-    ClientBackURL: 'http://localhost:5173/payment/result',
+    ClientBackURL: process.env.ECPAY_BACK_URL || 'http://localhost:5173/orders/checkout',
+    OrderResultURL: process.env.ECPAY_ORDER_RESULT_URL || 'http://localhost:5173/orders/completed'
   };
 
   return {
