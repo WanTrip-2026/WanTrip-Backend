@@ -17,7 +17,6 @@ PaymentRouter.post('/get-aio-params', (req: Request, res: Response) => {
   }
 });
 
-// 2. 接收付款結果通知 (Callback)
 PaymentRouter.post('/callback', (req: Request, res: Response) => {
   console.log('--- 收到綠界回傳 ---');
   const payload = req.body;
@@ -27,7 +26,6 @@ PaymentRouter.post('/callback', (req: Request, res: Response) => {
   }
 
   if (payload.RtnCode === '1') {
-    // 這裡更新資料庫
     console.log(`訂單 ${payload.MerchantTradeNo} 付款成功`);
   }
 
