@@ -66,7 +66,9 @@ router.get("/", async (req: Request, res: Response) => {
     );
 
     if (keyword) {
-      baseQuery = baseQuery.ilike("name", `%${keyword}%`);
+      baseQuery = baseQuery = baseQuery.or(
+        `name.ilike.%${keyword}%,city.ilike.%${keyword}%,district.ilike.%${keyword}%`
+      );
     }
     if (starRatings.length > 0) {
       baseQuery = baseQuery.in("star_rating", starRatings);
