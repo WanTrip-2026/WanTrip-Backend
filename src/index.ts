@@ -7,6 +7,7 @@ import userRouter from "./routes/users.js";
 import facilitiesRouter from "./routes/facilities.js";
 import paymentRouter from "./PaymentRouter.js";
 import hotelImagesRouter from "./routes/hotelImages";
+import hotelTypesRouter from "./routes/hotelTypes";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -19,6 +20,7 @@ app.use("/api/users", userRouter);
 app.use("/api/facilities", facilitiesRouter);
 app.use("/api/payment", paymentRouter);
 app.use("/api/hotel_images", hotelImagesRouter);
+app.use("/api/hotel_types", hotelTypesRouter);
 
 app.listen(PORT, () => {
   console.log(`API running on http://localhost:${PORT}`);
