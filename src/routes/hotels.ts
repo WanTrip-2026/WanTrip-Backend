@@ -112,4 +112,51 @@ router.get("/", async (req: Request, res: Response) => {
   }
 });
 
+// 取得單一飯店（給飯店詳細頁用）
+router.get("/:id", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const { data, error } = await supabase
+      .from("hotels")
+      .select(
+        `id, name, star_rating, min_price, city, district, address, phone, description,
+         hotel_facilities (facility_name),
+         hotel_images (image_url, sort_order)`
+      )
+      .eq("id", id)
+      .single();
+
+    if (error) {
+      // single() 找不到資料時通常也會進 error，這裡回 404 比較合理
+      return res
+        .status(404)
+        .json({ message: "找不到該飯店", detail: error.message });
+    }
+
+    const featureImage = (data.hotel_images ?? [])
+      .slice()
+      .sort(
+        (a: any, b: any) => (a.sort_order ?? 9999) - (b.sort_order ?? 9999)
+      )[0]?.image_url;
+
+    const hotel = {
+      ...data,
+      facilities: (data.hotel_facilities ?? []).map(
+        (f: any) => f.facility_name
+      ),
+      image_url:
+        featureImage ||
+        "https://cdn.hk01.com/di/media/images/3366554/org/1a17ee577918293a276a61cded582477.jpg/CwABjWRXi8m70sf513Oli2_Nrybz9IXncrQxZHK0MWQ?v=w1280r16_9",
+    };
+
+    return res.json(hotel);
+  } catch (err: any) {
+    console.error("取得單一飯店失敗：", err.message || err);
+    return res
+      .status(500)
+      .json({ message: "取得單一飯店失敗", detail: err.message });
+  }
+});
+
 export default router;
