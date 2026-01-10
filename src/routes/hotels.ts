@@ -2,7 +2,6 @@ import { Router, Request, Response } from "express";
 import { supabase } from "../supabase.js";
 
 const router = Router();
-console.log("[hotelsRouter] loaded file:", import.meta.url);
 
 router.get("/", async (req: Request, res: Response) => {
   try {
@@ -160,7 +159,7 @@ router.get("/", async (req: Request, res: Response) => {
         facilities: (h.hotel_facilities ?? []).map((f: any) => f.facility_name),
         image_url:
           featureImage ||
-          "https://cdn.hk01.com/di/media/images/3366554/org/1a17ee577918293a276a61cded582477.jpg/CwABjWRXi8m70sf513Oli2_Nrybz9IXncrQxZHK0MWQ?v=w1280r16_9",
+          "https://res.cloudinary.com/wantrip/image/upload/v1767939338/%E9%A3%AF%E5%BA%97%E9%A6%96%E5%9C%96_dualwy.jpg",
       };
     });
 
@@ -215,7 +214,7 @@ router.get("/:id", async (req: Request, res: Response) => {
       ),
       image_url:
         featureImage ||
-        "https://cdn.hk01.com/di/media/images/3366554/org/1a17ee577918293a276a61cded582477.jpg/CwABjWRXi8m70sf513Oli2_Nrybz9IXncrQxZHK0MWQ?v=w1280r16_9",
+        "https://res.cloudinary.com/wantrip/image/upload/v1767939338/%E9%A3%AF%E5%BA%97%E9%A6%96%E5%9C%96_dualwy.jpg",
     };
 
     return res.json(hotel);
@@ -225,6 +224,63 @@ router.get("/:id", async (req: Request, res: Response) => {
       message: "取得單一飯店失敗",
       detail: err?.message ?? String(err),
     });
+  }
+});
+// 取得飯店資料(room_details）
+router.get("/:id/rooms", async (req, res) => {
+  console.log("HIT rooms-based API /hotels/:id/rooms");
+
+  try {
+    const hotelId = req.params.id;
+
+    const { data, error } = await supabase
+      .from("rooms")
+      .select(
+        `
+        id,
+        name,
+        price,
+        capacity,
+        image_url,
+        room_type:room_type_id (
+          id,
+          name,
+          room_details ( content )
+        )
+      `
+      )
+      .eq("hotel_id", hotelId)
+      .order("price", { ascending: true });
+
+    if (error) {
+      console.error("[rooms] supabase error:", error);
+      return res.status(500).json({
+        message: "取得房型資料失敗",
+        supabase_error: {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+        },
+      });
+    }
+
+    const rooms = (data ?? []).map((r: any) => ({
+      id: r.id,
+      name: r.name ?? r.room_type?.name ?? "",
+      price: r.price ?? 0,
+      capacity: r.capacity ?? 0,
+      image_url: r.image_url ?? "",
+      details: (r.room_type?.room_details ?? []).map((d: any) => d.content),
+      features: [],
+    }));
+
+    return res.json(rooms);
+  } catch (err: any) {
+    console.error("[rooms] server error:", err);
+    return res
+      .status(500)
+      .json({ message: "取得房型資料失敗", server_error: err?.message });
   }
 });
 

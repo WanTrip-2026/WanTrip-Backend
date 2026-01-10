@@ -12,7 +12,7 @@ router.get("/", async (_req: Request, res: Response) => {
 
     // 去重複
     const types = Array.from(
-      new Set((data ?? []).map((r: any) => r.type))
+      new Set((data ?? []).map((r: { type: string }) => r.type))
     ).sort();
 
     res.json(types);
