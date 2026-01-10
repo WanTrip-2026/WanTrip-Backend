@@ -70,40 +70,23 @@ router.get("/", async (req: Request, res: Response) => {
     }
 
     // 2) Types filter: get hotel ids for this page + total count
-    // This avoids huge "in(id, ...)" lists when a type has many hotels (e.g., 民宿).
-    let pageHotelIdsByTypes: string[] | null = null;
-    let typesTotalCount: number | null = null;
+
+    let typeHotelIds: string[] | null = null;
 
     if (types.length > 0) {
-      // total count for types
-      const { count: tCount, error: tCountErr } = await supabase
-        .from("hotel_types")
-        .select("hotel_id", { count: "exact", head: true })
-        .in("type", types);
-
-      if (tCountErr) throw tCountErr;
-      typesTotalCount = tCount ?? 0;
-
-      if (typesTotalCount === 0) {
-        return res.json({ total: 0, page, limit, hotels: [] });
-      }
-
-      // fetch only hotel_ids for this page
       const { data: htData, error: htErr } = await supabase
         .from("hotel_types")
         .select("hotel_id")
-        .in("type", types)
-        .range(offset, offset + limit - 1);
+        .in("type", types);
 
       if (htErr) throw htErr;
 
-      pageHotelIdsByTypes = Array.from(
+      typeHotelIds = Array.from(
         new Set((htData ?? []).map((r: any) => r.hotel_id as string))
       );
 
-      if (pageHotelIdsByTypes.length === 0) {
-        // A page beyond available data
-        return res.json({ total: typesTotalCount, page, limit, hotels: [] });
+      if (typeHotelIds.length === 0) {
+        return res.json({ total: 0, page, limit, hotels: [] });
       }
     }
 
@@ -132,16 +115,13 @@ router.get("/", async (req: Request, res: Response) => {
     }
 
     // types page ids
-    if (pageHotelIdsByTypes) {
-      baseQuery = baseQuery.in("id", pageHotelIdsByTypes);
+
+    if (typeHotelIds) {
+      baseQuery = baseQuery.in("id", typeHotelIds);
     }
 
-    // If types filter is used, paging is already done by hotel_types ids,
-    // so we should NOT apply range again on hotels; it could shrink the page twice.
-    const hotelsResult =
-      types.length > 0
-        ? await baseQuery
-        : await baseQuery.range(offset, offset + limit - 1);
+    // 一律在 hotels 上分頁
+    const hotelsResult = await baseQuery.range(offset, offset + limit - 1);
 
     const { data: hotelsData, error: hotelsError, count } = hotelsResult as any;
 
@@ -166,7 +146,7 @@ router.get("/", async (req: Request, res: Response) => {
     // Decide total
     // - If types filter is used, total should come from hotel_types count
     // - Otherwise use hotels count
-    const total = types.length > 0 ? typesTotalCount ?? 0 : count ?? 0;
+    const total = count ?? 0;
 
     return res.json({ total, page, limit, hotels });
   } catch (err: any) {
