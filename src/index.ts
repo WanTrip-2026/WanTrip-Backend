@@ -1,11 +1,11 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
-import hotelsRouter from "./routes/hotels.js";
-import ordersRouter from "./routes/orders.js";
-import userRouter from "./routes/users.js";
-import facilitiesRouter from "./routes/facilities.js";
-import paymentRouter from "./PaymentRouter.js";
+import hotelsRouter from "./routes/hotels";
+import ordersRouter from "./routes/orders";
+import userRouter from "./routes/users";
+import facilitiesRouter from "./routes/facilities";
+import paymentRouter from "./PaymentRouter";
 import hotelImagesRouter from "./routes/hotelImages";
 import hotelTypesRouter from "./routes/hotelTypes";
 
