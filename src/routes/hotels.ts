@@ -93,7 +93,7 @@ router.get("/", async (req: Request, res: Response) => {
     // 3) Query hotels with all filters
     let baseQuery = supabase.from("hotels").select(
       `
-        id, name, star_rating, min_price, city, district, address, phone, description,
+        id, name, star_rating, min_price, city, district, address, phone, description,latitude, longitude,
         hotel_facilities (facility_name),
         hotel_images (image_url, sort_order)
         `,
