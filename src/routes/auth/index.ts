@@ -73,8 +73,12 @@ router.post('/logout', async (_req, res) => {
 
 router.get('/me', async (req, res) => {
   const cookieName = process.env.COOKIE_NAME || 'wantrip_session'
-  const token = (req as any).cookies?.[cookieName]
-  if (!token) return res.json({ user: null })
+
+  const token = req.cookies?.[cookieName] || null
+
+  if (!token) {
+    return res.status(401).json({ message: 'Unauthorized, no token provided' })
+  }
 
   try {
     const payload = jwt.verify(token, process.env.APP_JWT_SECRET!) as any
@@ -82,23 +86,28 @@ router.get('/me', async (req, res) => {
 
     const { data: profile, error } = await supabaseAdmin
       .from('profiles')
-      .select('full_name')
+      .select('full_name, phone, gender, birthday')
       .eq('id', userId)
-      .single()
+      .maybeSingle()
 
     if (error) {
       console.warn('[auth/me] profile not found:', error.message)
+      return res.status(500).json({ message: 'Error fetching profile data' })
     }
 
     return res.json({
-      user: {
+       user: {
         id: userId,
-        email: payload.email ?? null,
+        email: payload.email ?? null,  // 這裡的 email 從 token 中拿
         full_name: profile?.full_name ?? null,
+        phone: profile?.phone ?? null,
+        gender: profile?.gender ?? null,
+        birthday: profile?.birthday ?? null,
       },
     })
   } catch (e) {
-    return res.json({ user: null })
+    console.error('[auth/me] Error verifying token:', e)
+    return res.status(401).json({ message: 'Invalid or expired token' })
   }
 })
 
