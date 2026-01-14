@@ -137,7 +137,7 @@ router.get("/", async (req: Request, res: Response) => {
 
       return {
         ...h,
-        types: (h.hotel_types ?? []).map((t: any) => t.type),
+        types: (h.hotel_types ?? []).map((t: { type: string }) => t.type),
         facilities: (h.hotel_facilities ?? []).map((f: any) => f.facility_name),
         image_url:
           featureImage ||
@@ -192,7 +192,7 @@ router.get("/:id", async (req: Request, res: Response) => {
 
     const hotel = {
       ...data,
-      types: (data.hotel_types ?? []).map((t: any) => t.type),
+      types: (data.hotel_types ?? []).map((t: { type: string }) => t.type),
       facilities: (data.hotel_facilities ?? []).map(
         (f: any) => f.facility_name
       ),
