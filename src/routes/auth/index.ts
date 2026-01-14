@@ -61,7 +61,53 @@ const createSessionHandler = async (req: any, res: any) => {
   }
 }
 
-router.post('/session', createSessionHandler)
+router.post('/session', async (req, res) => {
+  try {
+    const { access_token } = req.body ?? {}
+    if (!access_token) return res.status(400).json({ message: 'access_token required' })
+
+    const { data, error } = await supabaseAdmin.auth.getUser(access_token)
+    if (error) return res.status(401).json({ message: error.message })
+
+    const user = data.user
+    if (!user) return res.status(401).json({ message: 'Invalid token' })
+
+    // 登入後的資料插入/更新邏輯
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .select('full_name, phone, gender, birthday, email')
+      .eq('id', user.id)
+      .maybeSingle()
+
+    // 如果資料庫中沒有找到使用者資料，使用 upsert 插入資料
+    if (!profile) {
+      const { error: upsertErr } = await supabaseAdmin
+        .from('profiles')
+        .upsert({
+          id: user.id,
+          email: user.email,
+          full_name: user.user_metadata.full_name || '',
+        })
+      if (upsertErr) {
+        return res.status(500).json({ message: upsertErr.message })
+      }
+    }
+
+    // 設置 session cookie
+    setSessionCookie(res, { sub: user.id, email: user.email })
+
+    return res.json({
+      ok: true,
+      user: {
+        id: user.id,
+        email: user.email,
+      },
+    })
+  } catch (e) {
+    console.error('[auth/session] error:', e)
+    return res.status(500).json({ message: e?.message || 'Server error' })
+  }
+})
 
 router.post('/exchange', createSessionHandler)
 
@@ -73,7 +119,6 @@ router.post('/logout', async (_req, res) => {
 
 router.get('/me', async (req, res) => {
   const cookieName = process.env.COOKIE_NAME || 'wantrip_session'
-
   const token = req.cookies?.[cookieName] || null
 
   if (!token) {
@@ -84,21 +129,22 @@ router.get('/me', async (req, res) => {
     const payload = jwt.verify(token, process.env.APP_JWT_SECRET!) as any
     const userId = payload.sub
 
+    // 這裡選擇了返回更多資料，包含 email
     const { data: profile, error } = await supabaseAdmin
       .from('profiles')
-      .select('full_name, phone, gender, birthday')
+      .select('full_name, phone, gender, birthday, email') // 這裡加入 email
       .eq('id', userId)
       .maybeSingle()
 
     if (error) {
       console.warn('[auth/me] profile not found:', error.message)
-      return res.status(500).json({ message: 'Error fetching profile data' })
+      return res.status(401).json({ message: '資料庫查詢錯誤' })
     }
 
     return res.json({
-       user: {
+      user: {
         id: userId,
-        email: payload.email ?? null,  // 這裡的 email 從 token 中拿
+        email: profile?.email ?? payload.email,  // 如果資料庫沒有 email，回傳 payload.email
         full_name: profile?.full_name ?? null,
         phone: profile?.phone ?? null,
         gender: profile?.gender ?? null,
