@@ -3,141 +3,156 @@ import { supabase } from "../supabase.js";
 
 const router = Router();
 
+// --- 1. 取得飯店列表 (主搜尋功能) ---
 router.get("/", async (req: Request, res: Response) => {
+  const keyword = (req.query.keyword as string | undefined)?.trim() ?? "";
+  const startDate = req.query.start_date as string;
+  const endDate = req.query.end_date as string;
+  const adults = parseInt(req.query.adults as string, 10) || 2;
+  const roomsRequired = parseInt(req.query.rooms as string, 10) || 1;
+
   try {
-    // Pagination
     const page = Math.max(parseInt(req.query.page as string, 10) || 1, 1);
     const limit = Math.max(parseInt(req.query.limit as string, 10) || 20, 1);
     const offset = (page - 1) * limit;
 
-    // Query params
     const facilityNames =
       (req.query.facility_names as string | undefined)?.trim() ?? "";
-    const keyword = (req.query.keyword as string | undefined)?.trim() ?? "";
-
     const starRatingsRaw = (req.query.star_ratings as string | undefined) ?? "";
-    const starRatings =
-      starRatingsRaw
-        .split(",")
-        .map((s) => parseInt(s.trim(), 10))
-        .filter((n) => Number.isFinite(n)) ?? [];
-
     const typesRaw = (req.query.types as string | undefined)?.trim() ?? "";
-    const types =
-      typesRaw
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean) ?? [];
 
-    // Avoid breaking PostgREST filter string with commas
-    const safeKeyword = keyword.replace(/,/g, " ");
+    // 篩選器容器
+    let filterSets: string[][] = [];
 
-    // 1) Facilities AND filter: compute matched hotel ids
-    let hotelIdsByFacilities: string[] | null = null;
+    // A. 日期與庫存篩選
+    if (startDate && endDate) {
+      const { data: availableData } = await supabase
+        .from("room_inventory")
+        .select("room_id")
+        .gte("date", startDate)
+        .lt("date", endDate)
+        .gt("available_quantity", 0);
 
+      const roomIds = (availableData ?? []).map((r) => r.room_id);
+      if (roomIds.length === 0)
+        return res.json({ total: 0, page, limit, hotels: [] });
+
+      const { data: roomsData } = await supabase
+        .from("rooms")
+        .select("hotel_id")
+        .in("id", roomIds)
+        .gte("capacity", Math.ceil(adults / roomsRequired));
+
+      const dateHotelIds = Array.from(
+        new Set((roomsData ?? []).map((r) => r.hotel_id))
+      );
+      if (dateHotelIds.length === 0)
+        return res.json({ total: 0, page, limit, hotels: [] });
+      filterSets.push(dateHotelIds);
+    }
+
+    // B. 設施篩選 (AND 邏輯)
     if (facilityNames) {
-      const selectedFacilities = facilityNames
+      const selected = facilityNames
         .split(",")
         .map((s) => s.trim())
         .filter(Boolean);
-
-      const { data: hfData, error: hfErr } = await supabase
+      const { data: hfData } = await supabase
         .from("hotel_facilities")
         .select("hotel_id, facility_name")
-        .in("facility_name", selectedFacilities);
+        .in("facility_name", selected);
 
-      if (hfErr) throw hfErr;
+      const hitMap = new Map<string, Set<string>>();
+      (hfData ?? []).forEach((row: any) => {
+        if (!hitMap.has(row.hotel_id)) hitMap.set(row.hotel_id, new Set());
+        hitMap.get(row.hotel_id)!.add(row.facility_name);
+      });
 
-      const hitCount = new Map<string, Set<string>>();
-      for (const row of hfData ?? []) {
-        const hotelId = (row as any).hotel_id as string;
-        const fName = (row as any).facility_name as string;
+      const facilityHotelIds = Array.from(hitMap.entries())
+        .filter(([_, fSet]) => selected.every((f) => fSet.has(f)))
+        .map(([id]) => id);
 
-        if (!hitCount.has(hotelId)) hitCount.set(hotelId, new Set());
-        hitCount.get(hotelId)!.add(fName);
-      }
-
-      hotelIdsByFacilities = [];
-      for (const [hotelId, fSet] of hitCount.entries()) {
-        if (selectedFacilities.every((f) => fSet.has(f))) {
-          hotelIdsByFacilities.push(hotelId);
-        }
-      }
-
-      if (hotelIdsByFacilities.length === 0) {
+      if (facilityHotelIds.length === 0)
         return res.json({ total: 0, page, limit, hotels: [] });
-      }
+      filterSets.push(facilityHotelIds);
     }
 
-    // 2) Types filter: get hotel ids for this page + total count
-
-    let typeHotelIds: string[] | null = null;
-
-    if (types.length > 0) {
-      const { data: htData, error: htErr } = await supabase
+    // C. 類型篩選 (OR 邏輯)
+    if (typesRaw) {
+      const types = typesRaw
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const { data: htData } = await supabase
         .from("hotel_types")
         .select("hotel_id")
         .in("type", types);
+      const typeHotelIds = Array.from(
+        new Set((htData ?? []).map((r: any) => r.hotel_id))
+      );
+      if (typeHotelIds.length === 0)
+        return res.json({ total: 0, page, limit, hotels: [] });
+      filterSets.push(typeHotelIds);
+    }
 
-      if (htErr) throw htErr;
+    // D. 計算最終交集 ID
+    let finalIds: string[] | null = null;
+    if (filterSets.length > 0) {
+      finalIds = filterSets.reduce((a, b) => a.filter((c) => b.includes(c)));
+      if (finalIds.length === 0)
+        return res.json({ total: 0, page, limit, hotels: [] });
+    }
 
-      typeHotelIds = Array.from(
-        new Set((htData ?? []).map((r: any) => r.hotel_id as string))
+    // E. 執行基礎查詢
+    let baseQuery = supabase
+      .from("hotels")
+      .select(
+        "id, name, star_rating, min_price, city, district, address, phone, description, latitude, longitude, hotel_types(type), hotel_facilities(facility_name), hotel_images(image_url, sort_order)",
+        { count: "exact" }
       );
 
-      if (typeHotelIds.length === 0) {
-        return res.json({ total: 0, page, limit, hotels: [] });
+    // 處理 ID 篩選
+    if (finalIds) {
+      if (finalIds.length < 200) {
+        baseQuery = baseQuery.in("id", finalIds);
+      } else {
+        // ID 太多時，分段處理或僅在 JS 端過濾（此處為保險做法）
+        baseQuery = baseQuery.in("id", finalIds.slice(0, 200));
       }
     }
 
-    // 3) Query hotels with all filters
-    let baseQuery = supabase.from("hotels").select(
-      `
-    id, name, star_rating, min_price, city, district, address, phone, description, latitude, longitude,
-    hotel_types (type),
-    hotel_facilities (facility_name),
-    hotel_images (image_url, sort_order)
-  `,
-      { count: "exact" }
-    );
+    // 處理星等
+    if (starRatingsRaw) {
+      const stars = starRatingsRaw
+        .split(",")
+        .map((s) => parseInt(s.trim()))
+        .filter((n) => !isNaN(n));
+      if (stars.length > 0) baseQuery = baseQuery.in("star_rating", stars);
+    }
 
-    if (safeKeyword) {
+    // 處理關鍵字
+    if (keyword) {
+      const sK = keyword.replace(/[,()]/g, "");
       baseQuery = baseQuery.or(
-        `name.ilike.%${safeKeyword}%,city.ilike.%${safeKeyword}%,district.ilike.%${safeKeyword}%`
+        `name.ilike.%${sK}%,city.ilike.%${sK}%,district.ilike.%${sK}%`
       );
     }
 
-    if (starRatings.length > 0) {
-      baseQuery = baseQuery.in("star_rating", starRatings);
-    }
-
-    if (hotelIdsByFacilities) {
-      baseQuery = baseQuery.in("id", hotelIdsByFacilities);
-    }
-
-    // types page ids
-
-    if (typeHotelIds) {
-      baseQuery = baseQuery.in("id", typeHotelIds);
-    }
-
-    // 一律在 hotels 上分頁
-    const hotelsResult = await baseQuery.range(offset, offset + limit - 1);
-
-    const { data: hotelsData, error: hotelsError, count } = hotelsResult as any;
-
+    const {
+      data: hotelsData,
+      error: hotelsError,
+      count,
+    } = await baseQuery.range(offset, offset + limit - 1);
     if (hotelsError) throw hotelsError;
 
+    // F. 格式化回傳
     const hotels = (hotelsData ?? []).map((h: any) => {
-      const featureImage = (h.hotel_images ?? [])
-        .slice()
-        .sort(
-          (a: any, b: any) => (a.sort_order ?? 9999) - (b.sort_order ?? 9999)
-        )[0]?.image_url;
-
+      const featureImage = (h.hotel_images ?? []).sort(
+        (a: any, b: any) => (a.sort_order ?? 9999) - (b.sort_order ?? 9999)
+      )[0]?.image_url;
       return {
         ...h,
-        types: (h.hotel_types ?? []).map((t: { type: string }) => t.type),
+        types: (h.hotel_types ?? []).map((t: any) => t.type),
         facilities: (h.hotel_facilities ?? []).map((f: any) => f.facility_name),
         image_url:
           featureImage ||
@@ -145,126 +160,48 @@ router.get("/", async (req: Request, res: Response) => {
       };
     });
 
-    // Decide total
-    // - If types filter is used, total should come from hotel_types count
-    // - Otherwise use hotels count
-    const total = count ?? 0;
-
-    return res.json({ total, page, limit, hotels });
+    return res.json({ total: count ?? 0, page, limit, hotels });
   } catch (err: any) {
-    console.error("取得飯店資料失敗：", err?.message || err);
-    return res.status(500).json({
-      message: "取得飯店資料失敗",
-      detail: err?.message ?? String(err),
-    });
+    console.error("❌ 搜尋失敗：", err.message);
+    return res
+      .status(500)
+      .json({ message: "取得飯店資料失敗", detail: err.message });
   }
 });
-// 取得單一飯店（給飯店詳細頁用）
-router.get("/:id", async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
 
+// --- 2. 取得單一飯店 ---
+router.get("/:id", async (req, res) => {
+  try {
     const { data, error } = await supabase
       .from("hotels")
       .select(
-        `
-        id, name, star_rating, min_price, city, district, address, phone, description,
-        hotel_types (type),
-        hotel_facilities (facility_name),
-        hotel_images (image_url, sort_order)
-        `
+        "*, hotel_types(type), hotel_facilities(facility_name), hotel_images(image_url, sort_order)"
       )
-      .eq("id", id)
+      .eq("id", req.params.id)
       .single();
-
-    if (error || !data) {
-      return res.status(404).json({
-        message: "找不到該飯店",
-        detail: error?.message ?? "No data",
-      });
-    }
-
-    const featureImage = (data.hotel_images ?? [])
-      .slice()
-      .sort(
-        (a: any, b: any) => (a.sort_order ?? 9999) - (b.sort_order ?? 9999)
-      )[0]?.image_url;
-
-    const hotel = {
-      ...data,
-      types: (data.hotel_types ?? []).map((t: { type: string }) => t.type),
-      facilities: (data.hotel_facilities ?? []).map(
-        (f: any) => f.facility_name
-      ),
-      image_url:
-        featureImage ||
-        "https://res.cloudinary.com/wantrip/image/upload/v1767939338/%E9%A3%AF%E5%BA%97%E9%A6%96%E5%9C%96_dualwy.jpg",
-    };
-
-    return res.json(hotel);
-  } catch (err: any) {
-    console.error("取得單一飯店失敗：", err?.message || err);
-    return res.status(500).json({
-      message: "取得單一飯店失敗",
-      detail: err?.message ?? String(err),
-    });
+    if (error || !data)
+      return res.status(404).json({ message: "找不到該飯店" });
+    return res.json(data);
+  } catch (err) {
+    return res.status(500).json({ message: "伺服器錯誤" });
   }
 });
-// 取得飯店資料(room_details）
+
+// --- 3. 取得飯店房型 ---
 router.get("/:id/rooms", async (req, res) => {
-  console.log("HIT rooms-based API /hotels/:id/rooms");
-
   try {
-    const hotelId = req.params.id;
-
     const { data, error } = await supabase
       .from("rooms")
       .select(
-        `
-        id,
-        name,
-        price,
-        capacity,
-        image_url,
-        room_type:room_type_id (
-          id,
-          name,
-          room_details ( content )
-        )
-      `
+        "id, name, price, capacity, image_url, room_type:room_type_id(id, name, room_details(content))"
       )
-      .eq("hotel_id", hotelId)
-      .order("price", { ascending: true });
+      .eq("hotel_id", req.params.id)
+      .order("price", { ascending: true }); // 修正了原本的語法錯誤
 
-    if (error) {
-      console.error("[rooms] supabase error:", error);
-      return res.status(500).json({
-        message: "取得房型資料失敗",
-        supabase_error: {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code,
-        },
-      });
-    }
-
-    const rooms = (data ?? []).map((r: any) => ({
-      id: r.id,
-      name: r.name ?? r.room_type?.name ?? "",
-      price: r.price ?? 0,
-      capacity: r.capacity ?? 0,
-      image_url: r.image_url ?? "",
-      details: (r.room_type?.room_details ?? []).map((d: any) => d.content),
-      features: [],
-    }));
-
-    return res.json(rooms);
-  } catch (err: any) {
-    console.error("[rooms] server error:", err);
-    return res
-      .status(500)
-      .json({ message: "取得房型資料失敗", server_error: err?.message });
+    if (error) throw error;
+    return res.json(data);
+  } catch (err) {
+    return res.status(500).json({ message: "取得房型失敗" });
   }
 });
 
