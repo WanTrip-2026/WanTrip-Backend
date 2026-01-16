@@ -5,6 +5,39 @@ const router = Router();
 
 router.get("/", async (req: Request, res: Response) => {
   try {
+    const city =
+      typeof req.query.city === "string" ? req.query.city : undefined;
+    const district =
+      typeof req.query.district === "string" ? req.query.district : undefined;
+
+    const finalCity = city ?? "台北市";
+
+    let q = supabase
+      .from("hotels_with_cover_v")
+      .select(
+        "id,name,city,district,address,star_rating,min_price,cover_image_url"
+      )
+      .eq("city", finalCity)
+      .order("min_price", { ascending: true })
+      .limit(6);
+
+    if (district) q = q.eq("district", district);
+
+    const { data, error } = await q;
+    if (error) {
+      console.error(error);
+      return res.status(500).json({ error: "取得附近飯店失敗" });
+    }
+
+    return res.json(data ?? []);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "取得附近飯店失敗" });
+  }
+});
+
+router.get("/", async (req: Request, res: Response) => {
+  try {
     // Pagination
     const page = Math.max(parseInt(req.query.page as string, 10) || 1, 1);
     const limit = Math.max(parseInt(req.query.limit as string, 10) || 20, 1);
