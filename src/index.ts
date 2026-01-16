@@ -12,6 +12,7 @@ import hotelImagesRouter from "./routes/hotelImages";
 import hotelTypesRouter from "./routes/hotelTypes";
 import authRouter from "./routes/auth";
 import featuredHotelsRouter from "./routes/hotelFeatured";
+import hotelNearbyRouter from "./routes/hotelNearby";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -36,6 +37,7 @@ app.use(express.urlencoded({ extended: true }));
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
 
 // ✅ 原本 routes（不動 payment）
+app.use("/api/hotels/nearby", hotelNearbyRouter);
 app.use("/api/hotels", hotelsRouter);
 app.use("/api/orders", ordersRouter);
 app.use("/api/users", userRouter);
