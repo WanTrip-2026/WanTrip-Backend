@@ -5,183 +5,58 @@ const router = Router();
 
 router.get("/", async (req: Request, res: Response) => {
   try {
-    // 1. 取得並解析參數
+    // 1. 取得並解析前端參數
     const keyword = (req.query.keyword as string | undefined)?.trim() ?? "";
-    const startDate = req.query.start_date as string;
-    const endDate = req.query.end_date as string;
+    const startDate = (req.query.start_date as string) || null;
+    const endDate = (req.query.end_date as string) || null;
     const totalPeople = parseInt(req.query.adults as string, 10) || 0;
     const roomsRequired = parseInt(req.query.rooms as string, 10) || 0;
     const page = Math.max(parseInt(req.query.page as string, 10) || 1, 1);
-    const limit = Math.max(parseInt(req.query.limit as string, 10) || 200, 1);
-    const offset = (page - 1) * limit;
+    const limit = Math.max(parseInt(req.query.limit as string, 10) || 20, 1);
 
-    const facilityNames =
-      (req.query.facility_names as string | undefined)?.trim() ?? "";
-    const starRatingsRaw = (req.query.star_ratings as string | undefined) ?? "";
-    const typesRaw = (req.query.types as string | undefined)?.trim() ?? "";
+    // 處理星等數組
+    const starRatings = req.query.star_ratings
+      ? (req.query.star_ratings as string)
+          .split(",")
+          .map((s) => parseInt(s.trim()))
+          .filter((n) => !isNaN(n))
+      : [];
 
-    console.log("--- 搜尋開始 ---");
-    console.log("參數檢查:", {
-      keyword,
-      startDate,
-      endDate,
-      totalPeople,
-      roomsRequired,
-    });
+    console.log("--- 執行 RPC 搜尋 ---");
 
-    let filterSets: string[][] = [];
-    let finalIds: string[] | null = null;
-
-    // --- A. 日期與庫存篩選 ---
-    if (startDate && endDate) {
-      // 1. 只抓必要的欄位，減少網路傳輸量
-      const { data: inventoryData, error: invError } = await supabase
-        .from("room_inventory")
-        .select(
-          `
-      room_id,
-      rooms!inner (
-        hotel_id,
-        capacity
-      )
-    `
-        ) // 使用 !inner 確保只有關聯成功的才抓出來
-        .gte("date", startDate)
-        .lt("date", endDate)
-        .gt("available_quantity", 0)
-        .limit(5000);
-
-      if (invError) {
-        console.error("Supabase 內部錯誤:", invError);
-        throw invError;
+    // 2. 呼叫 Supabase RPC (在 SQL Editor 建立的函數)
+    const { data: rpcData, error: rpcError } = await supabase.rpc(
+      "search_hotels",
+      {
+        p_keyword: keyword,
+        p_start_date: startDate || null,
+        p_end_date: endDate || null,
+        p_adults: totalPeople,
+        p_rooms: roomsRequired,
+        p_star_ratings: starRatings,
+        p_page: page,
+        p_limit: limit,
       }
-
-      const hotelRoomMap = new Map<
-        string,
-        { totalCapacity: number; roomCount: number }
-      >();
-      const trackedRooms = new Set<string>();
-
-      (inventoryData ?? []).forEach((item: any) => {
-        // 因為使用了 rooms!inner，結構會變成 item.rooms
-        const room = item.rooms;
-        if (!room || !item.room_id) return;
-
-        const hId = room.hotel_id;
-        if (!hotelRoomMap.has(hId)) {
-          hotelRoomMap.set(hId, { totalCapacity: 0, roomCount: 0 });
-        }
-
-        if (!trackedRooms.has(item.room_id)) {
-          const h = hotelRoomMap.get(hId)!;
-          h.totalCapacity += room.capacity || 0;
-          h.roomCount += 1;
-          trackedRooms.add(item.room_id);
-        }
-      });
-
-      const dateHotelIds = Array.from(hotelRoomMap.entries())
-        .filter(
-          ([_, info]) =>
-            info.totalCapacity >= totalPeople && info.roomCount >= roomsRequired
-        )
-        .map(([id]) => id);
-
-      console.log("篩選後飯店數:", dateHotelIds.length);
-
-      if (dateHotelIds.length === 0)
-        return res.json({ total: 0, page, limit, hotels: [] });
-      filterSets.push(dateHotelIds);
-    }
-
-    // --- B. 設施篩選 ---
-    if (facilityNames) {
-      const selected = facilityNames
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean);
-      const { data: hfData } = await supabase
-        .from("hotel_facilities")
-        .select("hotel_id, facility_name")
-        .in("facility_name", selected);
-      const hitMap = new Map<string, Set<string>>();
-      (hfData ?? []).forEach((row: any) => {
-        if (!hitMap.has(row.hotel_id)) hitMap.set(row.hotel_id, new Set());
-        hitMap.get(row.hotel_id)!.add(row.facility_name);
-      });
-      const facilityHotelIds = Array.from(hitMap.entries())
-        .filter(([_, fSet]) => selected.every((f) => fSet.has(f)))
-        .map(([id]) => id);
-      console.log(`設施過濾後剩下: ${facilityHotelIds.length} 間飯店`);
-      filterSets.push(facilityHotelIds);
-    }
-
-    // --- C. 類型篩選 ---
-    if (typesRaw) {
-      const types = typesRaw
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean);
-      const { data: htData } = await supabase
-        .from("hotel_types")
-        .select("hotel_id")
-        .in("type", types);
-      const typeHotelIds = Array.from(
-        new Set((htData ?? []).map((r: any) => r.hotel_id))
-      );
-      console.log(`類型過濾後剩下: ${typeHotelIds.length} 間飯店`);
-      filterSets.push(typeHotelIds);
-    }
-
-    // --- D. 計算最終交集 ID ---
-    if (filterSets.length > 0) {
-      finalIds = filterSets.reduce(
-        (a, b) => a.filter((c) => b.includes(c)),
-        filterSets[0]
-      );
-      console.log(`所有條件交集後最終飯店數: ${finalIds.length}`);
-      if (finalIds.length === 0)
-        return res.json({ total: 0, page, limit, hotels: [] });
-    }
-
-    // --- E. 分頁查詢 ---
-    let hotelIdsQuery = supabase
-      .from("hotels")
-      .select("id", { count: "exact" });
-    if (finalIds) hotelIdsQuery = hotelIdsQuery.in("id", finalIds);
-    if (keyword) {
-      const sK = keyword.replace(/[,()]/g, "");
-      hotelIdsQuery = hotelIdsQuery.or(
-        `name.ilike.%${sK}%,city.ilike.%${sK}%,district.ilike.%${sK}%`
-      );
-    }
-    if (starRatingsRaw) {
-      const stars = starRatingsRaw
-        .split(",")
-        .map((s) => parseInt(s.trim()))
-        .filter((n) => !isNaN(n));
-      if (stars.length > 0)
-        hotelIdsQuery = hotelIdsQuery.in("star_rating", stars);
-    }
-
-    const {
-      data: hotelIdsData,
-      count: totalCount,
-      error: countError,
-    } = await hotelIdsQuery
-      .order("id", { ascending: true })
-      .range(offset, offset + limit - 1);
-    if (countError) throw countError;
-
-    const hotelIds = (hotelIdsData ?? []).map((h: any) => h.id);
-    console.log(
-      `分頁取出 ID 數量: ${hotelIds.length}, 資料庫符合總數: ${totalCount}`
     );
 
-    if (hotelIds.length === 0)
-      return res.json({ total: totalCount ?? 0, page, limit, hotels: [] });
+    if (rpcError) {
+      console.error("RPC 執行失敗:", rpcError);
+      throw rpcError;
+    }
 
-    // --- F. 批量抓取細節 ---
+    // 從 RPC 結果中取得總數 (取第一筆資料的 total_count )
+    const totalCount =
+      rpcData && rpcData.length > 0 ? parseInt(rpcData[0].total_count) : 0;
+    // 提取這一頁的所有飯店 ID
+    const hotelIds = (rpcData ?? []).map((r: any) => r.hotel_id);
+
+    console.log(`RPC 回傳飯店數: ${hotelIds.length}, 符合總數: ${totalCount}`);
+
+    if (hotelIds.length === 0) {
+      return res.json({ total: 0, page, limit, hotels: [] });
+    }
+
+    // 3. 根據分頁後的 ID 批量抓取詳細資料 (保持原有的 Step F 邏輯)
     const [hotelsRes, typesRes, facilitiesRes, imagesRes] = await Promise.all([
       supabase.from("hotels").select("*").in("id", hotelIds),
       supabase
@@ -198,6 +73,7 @@ router.get("/", async (req: Request, res: Response) => {
         .in("hotel_id", hotelIds),
     ]);
 
+    // 4. 組合資料
     const hotels = (hotelsRes.data ?? []).map((h: any) => {
       const featureImage = (imagesRes.data ?? [])
         .filter((img) => img.hotel_id === h.id)
@@ -219,8 +95,13 @@ router.get("/", async (req: Request, res: Response) => {
       };
     });
 
-    console.log("--- 搜尋完成，回傳結果 ---");
-    return res.json({ total: totalCount ?? 0, page, limit, hotels });
+    // 保持與原來的排序一致
+    const sortedHotels = hotelIds
+      .map((id: string) => hotels.find((h) => h.id === id))
+      .filter(Boolean);
+
+    console.log("--- 搜尋完成 ---");
+    return res.json({ total: totalCount, page, limit, hotels: sortedHotels });
   } catch (err: any) {
     console.error("❌ 搜尋失敗：", err.message);
     return res
