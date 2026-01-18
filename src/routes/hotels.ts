@@ -110,4 +110,41 @@ router.get("/", async (req: Request, res: Response) => {
   }
 });
 
+// 1. 取得飯店詳細資料
+router.get("/:id", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { data, error } = await supabase
+      .from("hotels")
+      .select("*")
+      .eq("id", id)
+      .single();
+
+    if (error) throw error;
+    return res.json(data);
+  } catch (err: any) {
+    return res
+      .status(500)
+      .json({ message: "取得詳情失敗", detail: err.message });
+  }
+});
+
+// 2. 取得該飯店的所有房型
+router.get("/:id/rooms", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { data, error } = await supabase
+      .from("rooms")
+      .select("*")
+      .eq("hotel_id", id);
+
+    if (error) throw error;
+    return res.json(data);
+  } catch (err: any) {
+    return res
+      .status(500)
+      .json({ message: "取得房型失敗", detail: err.message });
+  }
+});
+
 export default router;
