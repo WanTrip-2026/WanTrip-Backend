@@ -34,7 +34,19 @@ router.get("/user/:userId", async (req: Request, res: Response) => {
 // POST new order
 router.post("/", async (req: Request, res: Response) => {
   const newOrder = req.body;
-  console.log("Creating new order:", newOrder);
+  console.log("Creating new order - Payload:", newOrder);
+  console.log(
+    "Hotel ID:",
+    newOrder.hotel_id,
+    "Type:",
+    typeof newOrder.hotel_id,
+  );
+  console.log(
+    "Attraction ID:",
+    newOrder.attraction_id,
+    "Type:",
+    typeof newOrder.attraction_id,
+  );
 
   // Map frontend fields (from createOrder in OrderCheckOut.vue) to DB columns
   const orderPayload = {
@@ -61,7 +73,8 @@ router.post("/", async (req: Request, res: Response) => {
     contact_email: newOrder.userInfo?.email,
     contact_phone: newOrder.userInfo?.phone,
     image_url: newOrder.image || newOrder.image_url,
-    hotel_id: newOrder.hotel_id,
+    hotel_id: newOrder.hotel_id || null, // Ensure null if empty string
+    attraction_id: newOrder.attraction_id || null,
     // created_at is automatic if column default is set, otherwise:
     created_at: new Date().toISOString(),
   };
@@ -74,7 +87,7 @@ router.post("/", async (req: Request, res: Response) => {
 
   if (error) {
     console.error("Supabase error:", error);
-    return res.status(500).json({ message: "Error creating order", error });
+    return res.status(500).json({ message: "建立訂單失敗", error });
   }
 
   res.json(data);
