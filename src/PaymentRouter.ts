@@ -44,6 +44,17 @@ PaymentRouter.post("/callback", (req: Request, res: Response) => {
   res.send("1|OK");
 });
 
+// 3. 處理綠界 Client 端 POST 回來 redirect 到前端
+PaymentRouter.post("/ecpay-result", (req: Request, res: Response) => {
+  console.log("--- ECPay Result Redirect ---");
+  const payload = req.body;
+  // Redirect to frontend
+  const frontendUrl = process.env.FRONTEND_ORIGIN || "http://localhost:5173";
+  res.redirect(
+    `${frontendUrl}/orders/completed?orderId=${payload.MerchantTradeNo}`,
+  );
+});
+
 PaymentRouter.use("/", LinePayService.router);
 
 export default PaymentRouter;
