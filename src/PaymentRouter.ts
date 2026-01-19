@@ -1,14 +1,26 @@
-import { Router, Request, Response } from 'express';
-import { getAioCheckoutParams, verifyCheckMacValue } from './routes/ECPayService';
-import LinePayService from './routes/LinePayService';
+import { Router, Request, Response } from "express";
+import {
+  getAioCheckoutParams,
+  verifyCheckMacValue,
+} from "./routes/ECPayService";
+import LinePayService from "./routes/LinePayService";
 
 const PaymentRouter: Router = Router();
 
 // 1. 取得綠界 AIO 參數
-PaymentRouter.post('/get-aio-params', (req, res) => {
+PaymentRouter.post("/get-aio-params", (req, res) => {
   try {
-    const { amount } = req.body;
-    const tradeNo = `WT${Date.now()}`;
+    const { amount, orderId } = req.body;
+    const tradeNo =
+      orderId ||
+      (() => {
+        const now = new Date();
+        return `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}${Math.floor(
+          Math.random() * 1000000,
+        )
+          .toString()
+          .padStart(6, "0")}`;
+      })();
 
     const params = getAioCheckoutParams(Number(amount), tradeNo);
     res.json({ success: true, data: params });
@@ -17,21 +29,21 @@ PaymentRouter.post('/get-aio-params', (req, res) => {
   }
 });
 
-PaymentRouter.post('/callback', (req: Request, res: Response) => {
-  console.log('--- 收到綠界回傳 ---');
+PaymentRouter.post("/callback", (req: Request, res: Response) => {
+  console.log("--- 收到綠界回傳 ---");
   const payload = req.body;
 
   if (!verifyCheckMacValue(payload)) {
-    return res.send('0|CheckMacValueVerifyFail');
+    return res.send("0|CheckMacValueVerifyFail");
   }
 
-  if (payload.RtnCode === '1') {
+  if (payload.RtnCode === "1") {
     console.log(`訂單 ${payload.MerchantTradeNo} 付款成功`);
   }
 
-  res.send('1|OK');
+  res.send("1|OK");
 });
 
-PaymentRouter.use('/', LinePayService.router);
+PaymentRouter.use("/", LinePayService.router);
 
 export default PaymentRouter;
