@@ -9,7 +9,7 @@ router.get("/", async (_req: Request, res: Response) => {
 
   if (error) {
     console.error("Supabase error (GET /):", error);
-    return res.status(500).json({ message: "Failed to fetch orders" });
+    return res.status(500).json({ message: "取得訂單資料失敗" });
   }
 
   res.json(data);
