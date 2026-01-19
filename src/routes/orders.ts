@@ -61,22 +61,63 @@ router.post("/", async (req: Request, res: Response) => {
     contact_email: newOrder.userInfo?.email,
     contact_phone: newOrder.userInfo?.phone,
     image_url: newOrder.image || newOrder.image_url,
+    hotel_id: newOrder.hotel_id,
     // created_at is automatic if column default is set, otherwise:
     created_at: new Date().toISOString(),
   };
 
   const { data, error } = await supabase
     .from("orders")
-    .insert([orderPayload])
+    .insert(orderPayload)
     .select()
     .single();
 
   if (error) {
-    console.error("Supabase error (POST /):", error);
-    return res.status(500).json({ message: "Error creating order" });
+    console.error("Supabase error:", error);
+    return res.status(500).json({ message: "Error creating order", error });
   }
 
-  res.json({ ok: true, order: data });
+  res.json(data);
+});
+
+// GET single order by order_id or id
+router.get("/:id", async (req: Request, res: Response) => {
+  const { id } = req.params;
+
+  // Simple UUID regex check
+  const isUuid =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+
+  let query = supabase.from("orders").select("*");
+
+  if (isUuid) {
+    query = query.eq("id", id);
+  } else {
+    query = query.eq("order_id", id);
+  }
+
+  const { data: orderData, error: orderError } = await query.maybeSingle();
+
+  if (orderError || !orderData) {
+    console.error("Supabase error (GET /:id):", orderError);
+    return res.status(404).json({ message: "Order not found" });
+  }
+
+  // Fetch hotel coordinates if hotel_id exists
+  if (orderData.hotel_id) {
+    const { data: hotelData } = await supabase
+      .from("hotels")
+      .select("latitude, longitude")
+      .eq("id", orderData.hotel_id)
+      .maybeSingle();
+
+    if (hotelData) {
+      (orderData as any).latitude = hotelData.latitude;
+      (orderData as any).longitude = hotelData.longitude;
+    }
+  }
+
+  res.json(orderData);
 });
 
 export default router;
