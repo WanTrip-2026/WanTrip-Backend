@@ -35,18 +35,6 @@ router.get("/user/:userId", async (req: Request, res: Response) => {
 router.post("/", async (req: Request, res: Response) => {
   const newOrder = req.body;
   console.log("Creating new order - Payload:", newOrder);
-  console.log(
-    "Hotel ID:",
-    newOrder.hotel_id,
-    "Type:",
-    typeof newOrder.hotel_id,
-  );
-  console.log(
-    "Attraction ID:",
-    newOrder.attraction_id,
-    "Type:",
-    typeof newOrder.attraction_id,
-  );
 
   // Map frontend fields (from createOrder in OrderCheckOut.vue) to DB columns
   const orderPayload = {
