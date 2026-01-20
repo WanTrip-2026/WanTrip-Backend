@@ -41,6 +41,11 @@ router.get("/", async (req: Request, res: Response) => {
     const limit = Math.max(parseInt(req.query.limit as string, 10) || 20, 1);
     const adults = parseInt(req.query.adults as string, 10) || 0;
     const rooms = parseInt(req.query.rooms as string, 10) || 0;
+    const minPrice = parseInt(req.query.min_price as string, 10) || 0;
+    const maxPrice = parseInt(req.query.max_price as string, 10) || 1000000;
+
+    const hasPriceFilter =
+      req.query.min_price !== undefined || req.query.max_price !== undefined;
 
     const starRatings =
       (req.query.star_ratings as string | undefined)
@@ -85,15 +90,17 @@ router.get("/", async (req: Request, res: Response) => {
         p_star_ratings: starRatings.length > 0 ? starRatings : null,
         p_facility_names: facilityNames.length > 0 ? facilityNames : null,
         p_types: types.length > 0 ? types : null,
+        p_min_price: minPrice,
+        p_max_price: maxPrice,
         p_page: page,
         p_limit: limit,
-      }
+      },
     );
 
     if (rpcError) throw rpcError;
 
     const hotelIds = ((rpcData as HotelSearchResult[]) ?? []).map(
-      (r) => r.hotel_id
+      (r) => r.hotel_id,
     );
     const totalCount =
       (rpcData as HotelSearchResult[] | null)?.[0]?.total_count ?? 0;
@@ -129,7 +136,7 @@ router.get("/", async (req: Request, res: Response) => {
       const featureImage = (imagesRes.data ?? [])
         .filter((img) => img.hotel_id === h.id)
         .sort(
-          (a, b) => (a.sort_order ?? 9999) - (b.sort_order ?? 9999)
+          (a, b) => (a.sort_order ?? 9999) - (b.sort_order ?? 9999),
         )[0]?.image_url;
 
       return {
@@ -147,7 +154,7 @@ router.get("/", async (req: Request, res: Response) => {
     });
 
     return res.json({
-      total: totalCount, // 使用資料庫傳回的總數
+      total: totalCount,
       page,
       limit,
       hotels: hotels,
@@ -180,7 +187,7 @@ router.get("/:id/rooms", async (req: Request, res: Response) => {
           name,
           room_details ( content )
         )
-      `
+      `,
       )
       .eq("hotel_id", id)
       .order("price", { ascending: true });
