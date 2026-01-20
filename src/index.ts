@@ -14,6 +14,7 @@ import authRouter from "./routes/auth";
 import featuredHotelsRouter from "./routes/hotelFeatured";
 import hotelNearbyRouter from "./routes/hotelNearby";
 import hotelRecommendedRouter from "./routes/hotelRecommended";
+import ticketsRouter from "./routes/tickets";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -48,6 +49,7 @@ app.use("/api/payment", paymentRouter);
 app.use("/api/hotel_images", hotelImagesRouter);
 app.use("/api/hotel_types", hotelTypesRouter);
 app.use("/api/hotel_featured", featuredHotelsRouter);
+app.use("/api/tickets", ticketsRouter);
 
 // ✅ auth（新增）
 app.use("/api/auth", authRouter);
