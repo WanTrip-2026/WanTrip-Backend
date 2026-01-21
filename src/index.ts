@@ -7,7 +7,7 @@ import hotelsRouter from "./routes/hotels.js";
 import ordersRouter from "./routes/orders.js";
 import userRouter from "./routes/users.js";
 import facilitiesRouter from "./routes/facilities.js";
-import paymentRouter from "./PaymentRouter.js";
+import paymentRouter from "./routes/payment.js";
 import hotelImagesRouter from "./routes/hotelImages";
 import hotelTypesRouter from "./routes/hotelTypes";
 import authRouter from "./routes/auth";

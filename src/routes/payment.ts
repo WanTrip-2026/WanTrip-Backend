@@ -2,8 +2,8 @@ import { Router, Request, Response } from "express";
 import {
   getAioCheckoutParams,
   verifyCheckMacValue,
-} from "./routes/ECPayService";
-import LinePayService from "./routes/LinePayService";
+} from "../services/ECPayService";
+import LinePayService from "../services/LinePayService";
 
 const PaymentRouter: Router = Router();
 

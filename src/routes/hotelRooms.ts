@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import { supabase } from "../supabase.js";
+import { supabase } from "../services/supabase.js";
 
 const router = Router();
 
@@ -21,7 +21,7 @@ router.get("/:id/rooms", async (req: Request, res: Response) => {
           name,
           room_details ( content )
         )
-      `
+      `,
       )
       .eq("hotel_id", hotelId)
       .order("price", { ascending: true });
