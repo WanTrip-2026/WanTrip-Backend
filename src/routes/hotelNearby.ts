@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import { supabase } from "../supabase.js";
+import { supabase } from "../services/supabase.js";
 
 const router = Router();
 
@@ -9,13 +9,13 @@ router.get("/", async (req: Request, res: Response) => {
     const city = typeof req.query.city === "string" ? req.query.city : "台北市";
     const limit = Math.min(
       Math.max(parseInt(req.query.limit as string) || 6, 1),
-      12
+      12,
     );
 
     let q = supabase
       .from("hotels_with_cover_v")
       .select(
-        "id,name,city,district,address,star_rating,min_price,cover_image_url"
+        "id,name,city,district,address,star_rating,min_price,cover_image_url",
       )
       .eq("city", city)
       .order("min_price", { ascending: true })

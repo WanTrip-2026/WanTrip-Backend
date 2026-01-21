@@ -1,13 +1,18 @@
 import express, { Request, Response } from "express";
-import { supabase } from "../supabase";
+import supabase from "../services/supabase";
+import { requireSupabaseAuth } from "../middlewares/requireSupabaseAuth";
+import { requireAdmin } from "../middlewares/requireAdmin";
 
 const router = express.Router();
 const ORDER_STATUS = {
   COMPLETED: "訂購完成",
 } as const;
 
-// GET all orders (for admin or debug)
-router.get("/", async (_req: Request, res: Response) => {
+// Middleware: Require Supabase Auth for all order routes
+router.use(requireSupabaseAuth);
+
+// GET all orders (Admin Only)
+router.get("/", requireAdmin, async (_req: Request, res: Response) => {
   const { data, error } = await supabase.from("orders").select("*");
 
   if (error) {
@@ -18,75 +23,110 @@ router.get("/", async (_req: Request, res: Response) => {
   res.json(data);
 });
 
-// GET orders by User ID
-router.get("/user/:userId", async (req: Request, res: Response) => {
-  const { userId } = req.params;
+// GET my orders (Logged-in User)
+router.get("/me", async (req: Request, res: Response) => {
+  const user = (req as any).user;
   const { data, error } = await supabase
     .from("orders")
     .select("*")
-    .eq("user_id", userId)
+    .eq("user_id", user.id)
     .order("created_at", { ascending: false });
 
   if (error) {
-    console.error("Supabase error (GET /user/:userId):", error);
-    return res.status(500).json({ message: "建立訂單失敗", error });
+    console.error("Supabase error (GET /me):", error);
+    return res.status(500).json({ message: "取得個人訂單失敗" });
   }
   res.json(data);
 });
 
-// POST new order
+// GET orders by User ID (Admin Only - or deprecated in favor of /me)
+// Keeping it restricted to admin if we want to allow admins to view other user's orders specifically
+router.get(
+  "/user/:userId",
+  requireAdmin,
+  async (req: Request, res: Response) => {
+    const { userId } = req.params;
+    const { data, error } = await supabase
+      .from("orders")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Supabase error (GET /user/:userId):", error);
+      return res.status(500).json({ message: "取得使用者訂單失敗" });
+    }
+    res.json(data);
+  },
+);
+
+// POST new order (Authenticated User)
 router.post("/", async (req: Request, res: Response) => {
-  const newOrder = req.body;
-  console.log("Creating new order - Payload:", newOrder);
+  try {
+    const user = (req as any).user;
+    const newOrder = req.body;
+    console.log("Creating new order - User:", user.id);
 
-  // Map frontend fields (from createOrder in OrderCheckOut.vue) to DB columns
-  const orderPayload = {
-    user_id: newOrder.user_id,
-    order_id:
-      newOrder.order_id ||
-      (() => {
-        const now = new Date();
-        return `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}${Math.floor(
-          Math.random() * 1000000,
-        )
-          .toString()
-          .padStart(6, "0")}`;
-      })(),
-    hotel_name: newOrder.hotelName || newOrder.title, // Fallback
-    room_type: newOrder.roomType || newOrder.subtitle,
-    check_in_date:
-      newOrder.checkInDate ||
-      (newOrder.date ? newOrder.date.split(" ")[0] : null),
-    check_out_date: newOrder.checkOutDate,
-    price: newOrder.orderAmount || newOrder.price,
-    status: ORDER_STATUS.COMPLETED,
-    contact_name: newOrder.userInfo?.name,
-    contact_email: newOrder.userInfo?.email,
-    contact_phone: newOrder.userInfo?.phone,
-    image_url: newOrder.image || newOrder.image_url,
-    hotel_id: newOrder.hotel_id || null, // Ensure null if empty string
-    attraction_id: newOrder.attraction_id || null,
-    // created_at is automatic if column default is set, otherwise:
-    created_at: new Date().toISOString(),
-  };
+    // Validate essential fields
+    // Allow hotel_name/room_type OR title/subtitle for flexibility, but prioritize specific ones
+    if (!newOrder.price && !newOrder.orderAmount) {
+      return res.status(400).json({ message: "Missing price information" });
+    }
 
-  const { data, error } = await supabase
-    .from("orders")
-    .insert(orderPayload)
-    .select()
-    .single();
+    // Map frontend fields to DB columns with Whitelist
+    const orderPayload = {
+      user_id: user.id, // FORCE user_id from token
+      order_id:
+        newOrder.order_id ||
+        (() => {
+          const now = new Date();
+          return `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}${Math.floor(
+            Math.random() * 1000000,
+          )
+            .toString()
+            .padStart(6, "0")}`;
+        })(),
+      hotel_name: newOrder.hotelName || newOrder.title,
+      room_type: newOrder.roomType || newOrder.subtitle,
+      check_in_date:
+        newOrder.checkInDate ||
+        (newOrder.date ? newOrder.date.split(" ")[0] : null),
+      check_out_date: newOrder.checkOutDate,
+      price: newOrder.orderAmount || newOrder.price,
+      status: ORDER_STATUS.COMPLETED,
+      contact_name: newOrder.userInfo?.name,
+      contact_email: newOrder.userInfo?.email,
+      contact_phone: newOrder.userInfo?.phone,
+      image_url: newOrder.image || newOrder.image_url,
+      hotel_id: newOrder.hotel_id || null,
+      attraction_id: newOrder.attraction_id || null,
+      created_at: new Date().toISOString(),
+    };
 
-  if (error) {
-    console.error("Supabase error:", error);
-    return res.status(500).json({ message: "建立訂單失敗", error });
+    const { data, error } = await supabase
+      .from("orders")
+      .insert(orderPayload)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Supabase insert error:", error);
+      // Hide specific DB error from client
+      return res.status(500).json({ message: "建立訂單失敗" });
+    }
+
+    res.json(data);
+  } catch (err) {
+    console.error("Create order exception:", err);
+    res.status(500).json({ message: "Internal Server Error" });
   }
-
-  res.json(data);
 });
 
 // GET single order by order_id or id
 router.get("/:id", async (req: Request, res: Response) => {
   const { id } = req.params;
+  const user = (req as any).user;
+  const isAdmin = user.user_metadata?.role === "admin";
 
   // Simple UUID regex check
   const isUuid =
@@ -105,6 +145,13 @@ router.get("/:id", async (req: Request, res: Response) => {
   if (orderError || !orderData) {
     console.error("Supabase error (GET /:id):", orderError);
     return res.status(404).json({ message: "Order not found" });
+  }
+
+  // Permission Check: Owner OR Admin
+  if (orderData.user_id !== user.id && !isAdmin) {
+    return res.status(403).json({
+      message: "Forbidden: You do not have permission to view this order",
+    });
   }
 
   // Fetch location info if available

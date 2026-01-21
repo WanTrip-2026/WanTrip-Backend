@@ -1,34 +1,33 @@
-import express, { Application } from 'express'
-import cors, { CorsOptions } from 'cors'
-import cookieParser from 'cookie-parser'
-import 'dotenv/config'
-import PaymentRouter from '../PaymentRouter'
-import authRouter from './routes/auth/index'
+import express, { Application } from "express";
+import cors, { CorsOptions } from "cors";
+import cookieParser from "cookie-parser";
+import "dotenv/config";
+import PaymentRouter from "./payment";
+import authRouter from "./auth/index";
 
-const app: Application = express()
+const app: Application = express();
 
 const corsOptions: CorsOptions = {
-  origin: process.env.FRONTEND_ORIGIN || 'http://localhost:5173',
+  origin: process.env.FRONTEND_ORIGIN || "http://localhost:5173",
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-}
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+};
 
 // ✅ 統一用同一份 options（避免 preflight 走到 *）
-app.use(cors(corsOptions))
-app.options('*', cors(corsOptions))
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
 
-app.use(cookieParser())
-app.use(express.json())
-app.use(express.urlencoded({ extended: true }))
+app.use(cookieParser());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-app.get('/api/health', (_req, res) => res.json({ ok: true }))
+app.get("/api/health", (_req, res) => res.json({ ok: true }));
 
-app.use('/api/auth', authRouter)        // ✅ auth
-app.use('/api/payment', PaymentRouter)  // ✅ 不動 payment
+app.use("/api/auth", authRouter); // ✅ auth
+app.use("/api/payment", PaymentRouter); // ✅ 不動 payment
 
-const PORT = process.env.PORT || 3000
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`[WanTrip Server] Running at http://localhost:${PORT}`)
-})
-  
+  console.log(`[WanTrip Server] Running at http://localhost:${PORT}`);
+});

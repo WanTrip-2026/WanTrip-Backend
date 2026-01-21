@@ -1,5 +1,5 @@
 import express, { Request, Response } from "express";
-import { supabase } from "../supabase.js";
+import { supabase } from "../services/supabase.js";
 
 const router = express.Router();
 
@@ -11,7 +11,9 @@ router.get("/", async (_req: Request, res: Response) => {
 
     if (error) throw error;
     const uniqueFacilities = Array.from(
-      new Set((data as { facility_name: string }[]).map((f) => f.facility_name))
+      new Set(
+        (data as { facility_name: string }[]).map((f) => f.facility_name),
+      ),
     );
     res.json(uniqueFacilities);
   } catch (err) {

@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import { supabase } from "../supabase.js";
+import { supabase } from "../services/supabase.js";
 
 const router = Router();
 
@@ -12,7 +12,7 @@ router.get("/", async (_req: Request, res: Response) => {
 
     // 去重複
     const types = Array.from(
-      new Set((data ?? []).map((r: { type: string }) => r.type))
+      new Set((data ?? []).map((r: { type: string }) => r.type)),
     ).sort();
 
     res.json(types);
