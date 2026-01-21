@@ -56,7 +56,7 @@ router.post("/", async (req: Request, res: Response) => {
       (newOrder.date ? newOrder.date.split(" ")[0] : null),
     check_out_date: newOrder.checkOutDate,
     price: newOrder.orderAmount || newOrder.price,
-    status: "completed", // Default strictly for MVP
+    status: "訂購完成", // Default strictly for MVP
     contact_name: newOrder.userInfo?.name,
     contact_email: newOrder.userInfo?.email,
     contact_phone: newOrder.userInfo?.phone,
@@ -104,17 +104,27 @@ router.get("/:id", async (req: Request, res: Response) => {
     return res.status(404).json({ message: "Order not found" });
   }
 
-  // Fetch hotel coordinates if hotel_id exists
+  // Fetch location info if available
   if (orderData.hotel_id) {
     const { data: hotelData } = await supabase
       .from("hotels")
-      .select("latitude, longitude")
+      .select("latitude, longitude, city, district, address")
       .eq("id", orderData.hotel_id)
       .maybeSingle();
 
     if (hotelData) {
-      (orderData as any).latitude = hotelData.latitude;
-      (orderData as any).longitude = hotelData.longitude;
+      Object.assign(orderData, hotelData);
+    }
+  } else if (orderData.attraction_id) {
+    const { data: attractionData } = await supabase
+      .from("attractions")
+      // Remove latitude/longitude as they likely don't exist in attractions table
+      .select("city, district, address")
+      .eq("id", orderData.attraction_id)
+      .maybeSingle();
+
+    if (attractionData) {
+      Object.assign(orderData, attractionData);
     }
   }
 
