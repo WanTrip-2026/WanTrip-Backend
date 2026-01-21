@@ -8,7 +8,7 @@ console.log("[authRouter] loaded");
 
 function setSessionCookie(
   res: any,
-  payload: { sub: string; email?: string | null },
+  payload: { sub: string; email?: string | null }
 ) {
   const cookieName = process.env.COOKIE_NAME || "wantrip_session";
   const token = jwt.sign(payload, process.env.APP_JWT_SECRET!, {
@@ -51,7 +51,7 @@ const createSessionHandler = async (req: any, res: any) => {
         email: user.email,
         full_name: (user.user_metadata as any)?.full_name || "",
       },
-      { onConflict: "id" },
+      { onConflict: "id" }
     );
 
     if (upsertErr) return res.status(500).json({ message: upsertErr.message });
@@ -108,9 +108,9 @@ router.post("/session", async (req, res) => {
     });
   } catch (e) {
     console.error("[auth/session] error:", e);
-    return res
-      .status(500)
-      .json({ message: (e as any)?.message || "Server error" });
+    // 使用 instanceof 檢查
+    const errorMessage = e instanceof Error ? e.message : "Server error";
+    return res.status(500).json({ message: errorMessage });
   }
 });
 

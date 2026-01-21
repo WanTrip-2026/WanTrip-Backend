@@ -3,7 +3,7 @@ import cors, { CorsOptions } from "cors";
 import cookieParser from "cookie-parser";
 import "dotenv/config";
 import PaymentRouter from "./payment";
-import authRouter from "./auth/index";
+import authRouter from "../routes/auth/index";
 
 const app: Application = express();
 
