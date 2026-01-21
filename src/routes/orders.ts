@@ -2,6 +2,9 @@ import express, { Request, Response } from "express";
 import { supabase } from "../supabase";
 
 const router = express.Router();
+const ORDER_STATUS = {
+  COMPLETED: "訂購完成",
+} as const;
 
 // GET all orders (for admin or debug)
 router.get("/", async (_req: Request, res: Response) => {
@@ -26,7 +29,7 @@ router.get("/user/:userId", async (req: Request, res: Response) => {
 
   if (error) {
     console.error("Supabase error (GET /user/:userId):", error);
-    return res.status(500).json({ message: "Error fetching user orders" });
+    return res.status(500).json({ message: "建立訂單失敗", error });
   }
   res.json(data);
 });
@@ -56,7 +59,7 @@ router.post("/", async (req: Request, res: Response) => {
       (newOrder.date ? newOrder.date.split(" ")[0] : null),
     check_out_date: newOrder.checkOutDate,
     price: newOrder.orderAmount || newOrder.price,
-    status: "訂購完成", // Default strictly for MVP
+    status: ORDER_STATUS.COMPLETED,
     contact_name: newOrder.userInfo?.name,
     contact_email: newOrder.userInfo?.email,
     contact_phone: newOrder.userInfo?.phone,
