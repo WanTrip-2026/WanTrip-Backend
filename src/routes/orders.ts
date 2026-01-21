@@ -3,10 +3,28 @@ import supabase from "../services/supabase";
 import { requireSupabaseAuth } from "../middlewares/requireSupabaseAuth";
 import { requireAdmin } from "../middlewares/requireAdmin";
 
+// 1. Define Typed Request
+interface AuthenticatedRequest extends Request {
+  user?: any; // In a real app, define User interface from Supabase types
+}
+
 const router = express.Router();
 const ORDER_STATUS = {
   COMPLETED: "訂購完成",
 } as const;
+
+// Helper: Generate Order ID
+const generateOrderId = () => {
+  const now = new Date();
+  const datePart = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(
+    2,
+    "0",
+  )}${String(now.getDate()).padStart(2, "0")}`;
+  const randomPart = Math.floor(Math.random() * 1000000)
+    .toString()
+    .padStart(6, "0");
+  return `${datePart}${randomPart}`;
+};
 
 // Middleware: Require Supabase Auth for all order routes
 router.use(requireSupabaseAuth);
@@ -25,7 +43,7 @@ router.get("/", requireAdmin, async (_req: Request, res: Response) => {
 
 // GET my orders (Logged-in User)
 router.get("/me", async (req: Request, res: Response) => {
-  const user = (req as any).user;
+  const user = (req as AuthenticatedRequest).user;
   const { data, error } = await supabase
     .from("orders")
     .select("*")
@@ -39,8 +57,7 @@ router.get("/me", async (req: Request, res: Response) => {
   res.json(data);
 });
 
-// GET orders by User ID (Admin Only - or deprecated in favor of /me)
-// Keeping it restricted to admin if we want to allow admins to view other user's orders specifically
+// GET orders by User ID (Admin Only)
 router.get(
   "/user/:userId",
   requireAdmin,
@@ -63,29 +80,19 @@ router.get(
 // POST new order (Authenticated User)
 router.post("/", async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
+    const user = (req as AuthenticatedRequest).user;
     const newOrder = req.body;
     console.log("Creating new order - User:", user.id);
 
     // Validate essential fields
-    // Allow hotel_name/room_type OR title/subtitle for flexibility, but prioritize specific ones
     if (!newOrder.price && !newOrder.orderAmount) {
       return res.status(400).json({ message: "Missing price information" });
     }
 
-    // Map frontend fields to DB columns with Whitelist
+    // Map frontend fields with Allowlist
     const orderPayload = {
       user_id: user.id, // FORCE user_id from token
-      order_id:
-        newOrder.order_id ||
-        (() => {
-          const now = new Date();
-          return `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}${Math.floor(
-            Math.random() * 1000000,
-          )
-            .toString()
-            .padStart(6, "0")}`;
-        })(),
+      order_id: newOrder.order_id || generateOrderId(),
       hotel_name: newOrder.hotelName || newOrder.title,
       room_type: newOrder.roomType || newOrder.subtitle,
       check_in_date:
@@ -111,7 +118,6 @@ router.post("/", async (req: Request, res: Response) => {
 
     if (error) {
       console.error("Supabase insert error:", error);
-      // Hide specific DB error from client
       return res.status(500).json({ message: "建立訂單失敗" });
     }
 
@@ -125,14 +131,15 @@ router.post("/", async (req: Request, res: Response) => {
 // GET single order by order_id or id
 router.get("/:id", async (req: Request, res: Response) => {
   const { id } = req.params;
-  const user = (req as any).user;
+  const user = (req as AuthenticatedRequest).user;
   const isAdmin = user.user_metadata?.role === "admin";
 
-  // Simple UUID regex check
   const isUuid =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
 
-  let query = supabase.from("orders").select("*");
+  // 3. Optimize: Use Join Query to fetch related hotel/attraction data in one go
+  // Note: This requires foreign keys to be set up in Supabase between orders.hotel_id -> hotels.id
+  let query = supabase.from("orders").select("*, hotels(*), attractions(*)"); // Select all from orders, plus joined hotels and attractions
 
   if (isUuid) {
     query = query.eq("id", id);
@@ -147,38 +154,36 @@ router.get("/:id", async (req: Request, res: Response) => {
     return res.status(404).json({ message: "Order not found" });
   }
 
-  // Permission Check: Owner OR Admin
+  // Permission Check
   if (orderData.user_id !== user.id && !isAdmin) {
     return res.status(403).json({
       message: "Forbidden: You do not have permission to view this order",
     });
   }
 
-  // Fetch location info if available
-  if (orderData.hotel_id) {
-    const { data: hotelData } = await supabase
-      .from("hotels")
-      .select("latitude, longitude, city, district, address")
-      .eq("id", orderData.hotel_id)
-      .maybeSingle();
+  // Flatten the response for frontend compatibility if needed
+  // Instead of orderData.hotels.address, frontend might expect orderData.address
+  // Let's merge them to maintain backward compatibility
+  const responseData = { ...orderData };
 
-    if (hotelData) {
-      Object.assign(orderData, hotelData);
-    }
-  } else if (orderData.attraction_id) {
-    const { data: attractionData } = await supabase
-      .from("attractions")
-      // Remove latitude/longitude as they likely don't exist in attractions table
-      .select("city, district, address")
-      .eq("id", orderData.attraction_id)
-      .maybeSingle();
-
-    if (attractionData) {
-      Object.assign(orderData, attractionData);
-    }
+  if (responseData.hotels) {
+    const { city, district, address, latitude, longitude } =
+      responseData.hotels;
+    Object.assign(responseData, {
+      city,
+      district,
+      address,
+      latitude,
+      longitude,
+    });
+    delete responseData.hotels; // Clean up nested object
+  } else if (responseData.attractions) {
+    const { city, district, address } = responseData.attractions;
+    Object.assign(responseData, { city, district, address });
+    delete responseData.attractions;
   }
 
-  res.json(orderData);
+  res.json(responseData);
 });
 
 export default router;

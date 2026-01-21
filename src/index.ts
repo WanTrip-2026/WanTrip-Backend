@@ -1,13 +1,13 @@
 import "dotenv/config";
-import express from "express";
+import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 
-import hotelsRouter from "./routes/hotels.js";
-import ordersRouter from "./routes/orders.js";
-import userRouter from "./routes/users.js";
-import facilitiesRouter from "./routes/facilities.js";
-import paymentRouter from "./routes/payment.js";
+import hotelsRouter from "./routes/hotels";
+import ordersRouter from "./routes/orders";
+import userRouter from "./routes/users";
+import facilitiesRouter from "./routes/facilities";
+import paymentRouter from "./routes/payment";
 import hotelImagesRouter from "./routes/hotelImages";
 import hotelTypesRouter from "./routes/hotelTypes";
 import authRouter from "./routes/auth";
@@ -27,10 +27,6 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-app.use((req, res, next) => {
-  if (req.method === "OPTIONS") return res.sendStatus(204);
-  next();
-});
 
 app.use(cookieParser());
 app.use(express.json());
@@ -38,7 +34,7 @@ app.use(express.urlencoded({ extended: true }));
 
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
 
-// ✅ 原本 routes（不動 payment）
+// ✅ Routes
 app.use("/api/hotels/recommended", hotelRecommendedRouter);
 app.use("/api/hotels/nearby", hotelNearbyRouter);
 app.use("/api/hotels", hotelsRouter);
@@ -51,8 +47,19 @@ app.use("/api/hotel_types", hotelTypesRouter);
 app.use("/api/hotel_featured", featuredHotelsRouter);
 app.use("/api/tickets", ticketsRouter);
 
-// ✅ auth（新增）
+// ✅ Auth
 app.use("/api/auth", authRouter);
+
+// 404 Handler
+app.use((_req, res) => {
+  res.status(404).json({ message: "Route not found" });
+});
+
+// Global Error Handler
+app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  console.error("[Global Error]", err);
+  res.status(500).json({ message: "Internal Server Error" });
+});
 
 app.listen(PORT, () => {
   console.log(`API running on http://localhost:${PORT}`);
