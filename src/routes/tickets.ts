@@ -251,7 +251,7 @@ router.get("/:id", async (req, res) => {
 
       const { data: recData } = await supabase
         .from("attractions")
-        .select("*, attraction_images(image_url), tickets(price)")
+        .select("*, attraction_images(image_url, sort_order), tickets(price)")
         // Use ilike for simplicity if it's text, or contains if it's array.
         // Current existing code uses .ilike for category search.
         .ilike("category", `%${category}%`)
