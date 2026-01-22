@@ -60,7 +60,9 @@ app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
   console.error("[Global Error]", err);
   res.status(500).json({ message: "Internal Server Error" });
 });
-
-app.listen(PORT, () => {
-  console.log(`API running on http://localhost:${PORT}`);
+// 確保能接收外部請求
+const portNumber = typeof PORT === "string" ? parseInt(PORT, 10) : PORT;
+app.listen(portNumber, "0.0.0.0", () => {
+  console.log(`Server is running on port ${portNumber}`);
+  console.log(`Local access: http://localhost:${portNumber}`);
 });
