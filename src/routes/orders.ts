@@ -79,56 +79,9 @@ router.get(
   },
 );
 
-// POST new order (Authenticated User)
-router.post("/", async (req: Request, res: Response) => {
-  try {
-    const user = (req as AuthenticatedRequest).user;
-    const newOrder = req.body;
-    console.log("Creating new order - User:", user.id);
-
-    // Validate essential fields
-    if (!newOrder.price && !newOrder.orderAmount) {
-      return res.status(400).json({ message: "Missing price information" });
-    }
-
-    // Map frontend fields with Allowlist
-    const orderPayload = {
-      user_id: user.id, // FORCE user_id from token
-      order_id: newOrder.order_id || generateOrderId(),
-      hotel_name: newOrder.hotelName || newOrder.title,
-      room_type: newOrder.roomType || newOrder.subtitle,
-      check_in_date:
-        newOrder.checkInDate ||
-        (newOrder.date ? newOrder.date.split(" ")[0] : null),
-      check_out_date: newOrder.checkOutDate,
-      price: newOrder.orderAmount || newOrder.price,
-      status: ORDER_STATUS.PENDING,
-      contact_name: newOrder.userInfo?.name,
-      contact_email: newOrder.userInfo?.email,
-      contact_phone: newOrder.userInfo?.phone,
-      image_url: newOrder.image || newOrder.image_url,
-      hotel_id: newOrder.hotel_id || null,
-      attraction_id: newOrder.attraction_id || null,
-      created_at: new Date().toISOString(),
-    };
-
-    const { data, error } = await supabase
-      .from("orders")
-      .insert(orderPayload)
-      .select()
-      .single();
-
-    if (error) {
-      console.error("Supabase insert error:", error);
-      return res.status(500).json({ message: "建立訂單失敗" });
-    }
-
-    res.json(data);
-  } catch (err) {
-    console.error("Create order exception:", err);
-    res.status(500).json({ message: "Internal Server Error" });
-  }
-});
+// POST new order (Authenticated User) - DEPRECATED/REMOVED
+// This endpoint is no longer used as orders are created via payment callbacks.
+// router.post("/", async (req: Request, res: Response) => { ... });
 
 // GET single order by order_id or id
 router.get("/:id", async (req: Request, res: Response) => {

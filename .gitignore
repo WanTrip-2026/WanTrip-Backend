@@ -31,3 +31,6 @@ dist/
 coverage/
 
 .eslintcache
+
+# Local temp files
+temp_orders.json

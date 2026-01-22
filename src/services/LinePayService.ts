@@ -45,6 +45,7 @@ if (!LINE_PAY_CHANNEL_ID || !LINE_PAY_CHANNEL_SECRET || !LINE_PAY_SITE) {
 import { tempOrderStorage } from "./TempOrderStore.js";
 import { supabaseAdmin } from "./supabaseAdmin.js";
 import { mapToOrderDbSchema } from "../utils/orderMapper.js";
+import { OrderService } from "./OrderService.js";
 
 const LinePayService = {
   generateSignature(uri: string, body: object, nonce: string): string {
@@ -173,48 +174,9 @@ router.post("/linepay/confirm", async (req: Request, res: Response) => {
 
     console.log(`[LINE Pay Confirm] Success: ${transactionId}`);
 
-    // Create Order in Supabase
+    // Create Order in Supabase via OrderService
     if (response.data.returnCode === "0000" && orderId) {
-      console.log(
-        `[LinePay] Payment Confirmed. Checking if order ${orderId} exists...`,
-      );
-
-      // Idempotency Check: Don't create if already exists
-      const { data: existingOrder } = await supabaseAdmin
-        .from("orders")
-        .select("id")
-        .eq("order_id", orderId)
-        .single();
-
-      if (existingOrder) {
-        console.log(
-          `[LinePay] Order ${orderId} already exists. Skipping creation.`,
-        );
-        tempOrderStorage.delete(orderId);
-        return res.json(response.data);
-      }
-
-      const pendingOrder = tempOrderStorage.get(orderId);
-      if (pendingOrder) {
-        console.log(`Found pending order for ${orderId}, creating in DB...`);
-        console.log(`[DEBUG] Pending Order User ID: ${pendingOrder.user_id}`);
-
-        const safePayload = mapToOrderDbSchema(pendingOrder);
-
-        const { error, data } = await supabaseAdmin
-          .from("orders")
-          .insert(safePayload)
-          .select()
-          .single();
-
-        if (error) console.error("Create order failed:", error);
-        else {
-          console.log("Order created successfully, ID:", data?.id);
-          tempOrderStorage.delete(orderId);
-        }
-      } else {
-        console.warn(`No pending order found for ${orderId}`);
-      }
+      await OrderService.processPaymentSuccess(orderId, amount);
     }
 
     res.json(response.data);
