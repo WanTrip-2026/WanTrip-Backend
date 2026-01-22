@@ -9,8 +9,10 @@ interface AuthenticatedRequest extends Request {
 }
 
 const router = express.Router();
+
 const ORDER_STATUS = {
   COMPLETED: "訂購完成",
+  PENDING: "未付款",
 } as const;
 
 // Helper: Generate Order ID
@@ -18,7 +20,7 @@ const generateOrderId = () => {
   const now = new Date();
   const datePart = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(
     2,
-    "0"
+    "0",
   )}${String(now.getDate()).padStart(2, "0")}`;
   const randomPart = Math.floor(Math.random() * 1000000)
     .toString()
@@ -74,7 +76,7 @@ router.get(
       return res.status(500).json({ message: "取得使用者訂單失敗" });
     }
     res.json(data);
-  }
+  },
 );
 
 // POST new order (Authenticated User)
@@ -100,7 +102,7 @@ router.post("/", async (req: Request, res: Response) => {
         (newOrder.date ? newOrder.date.split(" ")[0] : null),
       check_out_date: newOrder.checkOutDate,
       price: newOrder.orderAmount || newOrder.price,
-      status: ORDER_STATUS.COMPLETED,
+      status: ORDER_STATUS.PENDING,
       contact_name: newOrder.userInfo?.name,
       contact_email: newOrder.userInfo?.email,
       contact_phone: newOrder.userInfo?.phone,

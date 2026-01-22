@@ -42,6 +42,10 @@ if (!LINE_PAY_CHANNEL_ID || !LINE_PAY_CHANNEL_SECRET || !LINE_PAY_SITE) {
   throw new Error("Missing required LINE PAY environment variables");
 }
 
+import { tempOrderStorage } from "./TempOrderStore.js";
+import { supabaseAdmin } from "./supabaseAdmin.js";
+import { mapToOrderDbSchema } from "../utils/orderMapper.js";
+
 const LinePayService = {
   generateSignature(uri: string, body: object, nonce: string): string {
     const bodyString = JSON.stringify(body);
@@ -58,11 +62,12 @@ router.post("/linepay/request", async (req: Request, res: Response) => {
   try {
     const amount: number = Number(req.body.amount);
     const productName: string = req.body.productName || "WanTrip 行程";
+    const { orderId: bodyOrderId, ...orderPayload } = req.body; // Extract payload
 
     const uri = "/v3/payments/request";
     const nonce = uuidv4();
     const orderId =
-      req.body.orderId ||
+      bodyOrderId ||
       (() => {
         const now = new Date();
         return `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}${Math.floor(
@@ -71,6 +76,12 @@ router.post("/linepay/request", async (req: Request, res: Response) => {
           .toString()
           .padStart(6, "0")}`;
       })();
+
+    // Store the payload
+    const fullPayload = { ...orderPayload, price: amount, order_id: orderId };
+    tempOrderStorage.set(orderId, fullPayload);
+    console.log(`[LinePay] Stored temp order for ${orderId}`);
+
     const body: LinePayRequestBody = {
       amount: amount,
       currency: "TWD",
@@ -120,8 +131,30 @@ router.post("/linepay/request", async (req: Request, res: Response) => {
 
 router.post("/linepay/confirm", async (req: Request, res: Response) => {
   try {
-    const { transactionId } = req.body;
-    const amount: number = Number(req.body.amount);
+    const { transactionId, orderId } = req.body; // Expect orderId from frontend
+    let amount: number = Number(req.body.amount);
+
+    console.log(
+      `[LinePay Confirm] Transaction: ${transactionId}, Order: ${orderId}`,
+    );
+
+    // If amount is missing, try to retrieve from temp storage
+    let pendingOrder = null;
+    if (orderId) {
+      pendingOrder = tempOrderStorage.get(orderId);
+      if (pendingOrder && (!amount || isNaN(amount))) {
+        amount = Number(pendingOrder.price);
+        console.log(
+          `[LinePay Confirm] Retrieved amount ${amount} from temp storage for ${orderId}`,
+        );
+      }
+    }
+
+    if (!amount || isNaN(amount)) {
+      return res
+        .status(400)
+        .json({ message: "Amount is required and could not be retrieved" });
+    }
 
     const uri = `/v3/payments/${transactionId}/confirm`;
     const nonce = uuidv4();
@@ -139,6 +172,51 @@ router.post("/linepay/confirm", async (req: Request, res: Response) => {
     });
 
     console.log(`[LINE Pay Confirm] Success: ${transactionId}`);
+
+    // Create Order in Supabase
+    if (response.data.returnCode === "0000" && orderId) {
+      console.log(
+        `[LinePay] Payment Confirmed. Checking if order ${orderId} exists...`,
+      );
+
+      // Idempotency Check: Don't create if already exists
+      const { data: existingOrder } = await supabaseAdmin
+        .from("orders")
+        .select("id")
+        .eq("order_id", orderId)
+        .single();
+
+      if (existingOrder) {
+        console.log(
+          `[LinePay] Order ${orderId} already exists. Skipping creation.`,
+        );
+        tempOrderStorage.delete(orderId);
+        return res.json(response.data);
+      }
+
+      const pendingOrder = tempOrderStorage.get(orderId);
+      if (pendingOrder) {
+        console.log(`Found pending order for ${orderId}, creating in DB...`);
+        console.log(`[DEBUG] Pending Order User ID: ${pendingOrder.user_id}`);
+
+        const safePayload = mapToOrderDbSchema(pendingOrder);
+
+        const { error, data } = await supabaseAdmin
+          .from("orders")
+          .insert(safePayload)
+          .select()
+          .single();
+
+        if (error) console.error("Create order failed:", error);
+        else {
+          console.log("Order created successfully, ID:", data?.id);
+          tempOrderStorage.delete(orderId);
+        }
+      } else {
+        console.warn(`No pending order found for ${orderId}`);
+      }
+    }
+
     res.json(response.data);
   } catch (error) {
     const axiosError = error as AxiosError;
