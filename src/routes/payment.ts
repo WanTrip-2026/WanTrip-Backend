@@ -8,6 +8,7 @@ import { supabaseAdmin } from "../services/supabaseAdmin.js";
 import { mapToOrderDbSchema } from "../utils/orderMapper.js";
 
 import { tempOrderStorage } from "../services/TempOrderStore.js";
+import { OrderService } from "../services/OrderService.js";
 
 const PaymentRouter: Router = Router();
 
@@ -45,6 +46,13 @@ PaymentRouter.post("/get-aio-params", (req, res) => {
   }
 });
 
+// Helper logic for creating/updating order
+// Now delegates to OrderService
+async function processPaymentResult(orderId: string) {
+  const result = await OrderService.processPaymentSuccess(orderId);
+  return result.success;
+}
+
 PaymentRouter.post("/callback", async (req: Request, res: Response) => {
   console.log("--- 收到綠界回傳 ---");
   const payload = req.body;
@@ -55,55 +63,32 @@ PaymentRouter.post("/callback", async (req: Request, res: Response) => {
 
   if (payload.RtnCode === "1") {
     console.log(`訂單 ${payload.MerchantTradeNo} 付款成功`);
-
-    const orderId = payload.MerchantTradeNo;
-    const pendingOrder = tempOrderStorage.get(orderId);
-
-    if (pendingOrder) {
-      console.log(`Found pending order for ${orderId}, creating in DB...`);
-      console.log(`[DEBUG] Pending Order User ID: ${pendingOrder.user_id}`);
-
-      const safePayload = mapToOrderDbSchema(pendingOrder);
-
-      // Create order in Supabase
-      const { error, data } = await supabaseAdmin
-        .from("orders")
-        .insert(safePayload)
-        .select()
-        .single();
-
-      if (error) {
-        console.error("建立訂單失敗:", error);
-      } else {
-        console.log("訂單建立成功, ID:", data?.id);
-        tempOrderStorage.delete(orderId); // Clean up
-      }
-    } else {
-      // Fallback: Maybe order already exists? Update it just in case
-      console.log(`No pending order found for ${orderId}, trying update...`);
-      supabaseAdmin
-        .from("orders")
-        .update({ status: "completed" })
-        .eq("order_id", orderId)
-        .then(({ error }) => {
-          if (error) {
-            console.error("更新訂單狀態失敗:", error);
-          } else {
-            console.log("訂單狀態已更新為 completed");
-          }
-        });
-    }
+    await processPaymentResult(payload.MerchantTradeNo);
   }
 
   res.send("1|OK");
 });
 
 // 3. 處理綠界 Client 端 POST 回來 redirect 到前端
-PaymentRouter.post("/ecpay-result", (req: Request, res: Response) => {
+PaymentRouter.post("/ecpay-result", async (req: Request, res: Response) => {
   console.log("--- ECPay Result Redirect ---");
   const payload = req.body;
+
+  // Validate just in case, though it's less critical here as we are just redirecting mostly,
+  // but for creating order we should safeguard.
+  // Note: ECPay result redirect params might be slightly different or same as callback.
+  // Generally they contain similar info.
+  if (payload.RtnCode === "1") {
+    console.log(
+      `(Redirect) Checking/Creating order for ${payload.MerchantTradeNo}`,
+    );
+    await processPaymentResult(payload.MerchantTradeNo);
+  }
+
   // Redirect to frontend
   const frontendUrl = process.env.FRONTEND_ORIGIN || "http://localhost:5173";
+  // We can pass the orderId or just let the frontend fetch latest.
+  // Passing orderId is good for the success page to query.
   res.redirect(
     `${frontendUrl}/orders/completed?orderId=${payload.MerchantTradeNo}`,
   );
