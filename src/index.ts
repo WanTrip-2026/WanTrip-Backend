@@ -33,6 +33,10 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
+// 處理根目錄請求，避免監測工具報 404
+app.get("/health", (_req, res) => {
+  res.status(200).send("OK");
+});
 
 // ✅ Routes
 app.use("/api/hotels/recommended", hotelRecommendedRouter);
