@@ -10,7 +10,7 @@ import facilitiesRouter from "./routes/facilities.js";
 import paymentRouter from "./routes/payment.js";
 import hotelImagesRouter from "./routes/hotelImages.js";
 import hotelTypesRouter from "./routes/hotelTypes.js";
-import authRouter from "./routes/auth";
+import authRouter from "./routes/auth/index.js";
 import featuredHotelsRouter from "./routes/hotelFeatured.js";
 import hotelNearbyRouter from "./routes/hotelNearby.js";
 import hotelRecommendedRouter from "./routes/hotelRecommended.js";
