@@ -1,5 +1,5 @@
 import express from "express";
-import { supabase } from "../services/supabase";
+import { supabase } from "../services/supabase.js";
 
 const router = express.Router();
 
@@ -58,7 +58,7 @@ router.get("/popular", async (req, res) => {
 
     // Logic: One per different city
     const allPopular = (popularData as unknown as AttractionWithImages[]).map(
-      mapItem,
+      mapItem
     );
     const seenCities = new Set<string>();
     const distinctCityTickets: any[] = [];
@@ -104,7 +104,7 @@ router.get("/top-rated", async (req, res) => {
 
     // Logic: One per different category (項目)
     const allTopRated = (topRatedData as unknown as AttractionWithImages[]).map(
-      mapItem,
+      mapItem
     );
     const seenCategories = new Set<string>();
     const distinctCategoryTickets: any[] = [];
@@ -190,7 +190,7 @@ router.get("/search", async (req, res) => {
             "https://placehold.co/300x200?text=No+Image", // Search view format
           comments_count: 0,
         };
-      },
+      }
     );
 
     res.json(mappedData);
@@ -260,7 +260,7 @@ router.get("/:id", async (req, res) => {
 
       if (recData) {
         recommendations = (recData as unknown as AttractionWithImages[]).map(
-          mapItem,
+          mapItem
         );
       }
     }

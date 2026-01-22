@@ -3,7 +3,7 @@ import {
   getAioCheckoutParams,
   verifyCheckMacValue,
 } from "../services/ECPayService";
-import LinePayService from "../services/LinePayService";
+import LinePayService from "../services/LinePayService.js";
 
 const PaymentRouter: Router = Router();
 
@@ -15,8 +15,11 @@ PaymentRouter.post("/get-aio-params", (req, res) => {
       orderId ||
       (() => {
         const now = new Date();
-        return `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}${Math.floor(
-          Math.random() * 1000000,
+        return `${now.getFullYear()}${String(now.getMonth() + 1).padStart(
+          2,
+          "0"
+        )}${String(now.getDate()).padStart(2, "0")}${Math.floor(
+          Math.random() * 1000000
         )
           .toString()
           .padStart(6, "0")}`;
@@ -51,7 +54,7 @@ PaymentRouter.post("/ecpay-result", (req: Request, res: Response) => {
   // Redirect to frontend
   const frontendUrl = process.env.FRONTEND_ORIGIN || "http://localhost:5173";
   res.redirect(
-    `${frontendUrl}/orders/completed?orderId=${payload.MerchantTradeNo}`,
+    `${frontendUrl}/orders/completed?orderId=${payload.MerchantTradeNo}`
   );
 });
 

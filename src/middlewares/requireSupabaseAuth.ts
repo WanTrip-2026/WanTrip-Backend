@@ -1,10 +1,10 @@
 import type { Request, Response, NextFunction } from "express";
-import { supabaseAdmin } from "../services/supabaseAdmin";
+import { supabaseAdmin } from "../services/supabaseAdmin.js";
 
 export async function requireSupabaseAuth(
   req: Request,
   res: Response,
-  next: NextFunction,
+  next: NextFunction
 ) {
   const authHeader = req.headers.authorization || "";
   const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;

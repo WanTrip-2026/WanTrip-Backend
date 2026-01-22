@@ -1,7 +1,7 @@
 import express, { Request, Response } from "express";
-import supabase from "../services/supabase";
-import { requireSupabaseAuth } from "../middlewares/requireSupabaseAuth";
-import { requireAdmin } from "../middlewares/requireAdmin";
+import supabase from "../services/supabase.js";
+import { requireSupabaseAuth } from "../middlewares/requireSupabaseAuth.js";
+import { requireAdmin } from "../middlewares/requireAdmin.js";
 
 // 1. Define Typed Request
 interface AuthenticatedRequest extends Request {
@@ -18,7 +18,7 @@ const generateOrderId = () => {
   const now = new Date();
   const datePart = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(
     2,
-    "0",
+    "0"
   )}${String(now.getDate()).padStart(2, "0")}`;
   const randomPart = Math.floor(Math.random() * 1000000)
     .toString()
@@ -74,7 +74,7 @@ router.get(
       return res.status(500).json({ message: "取得使用者訂單失敗" });
     }
     res.json(data);
-  },
+  }
 );
 
 // POST new order (Authenticated User)
