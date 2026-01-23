@@ -205,12 +205,13 @@ router.get("/:id/rooms", async (req: Request, res: Response) => {
     }));
 
     return res.json(rooms);
-  } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : String(err);
+  } catch (err: any) {
+    const errorMessage = err.message || JSON.stringify(err);
     console.error("❌ 取得房型資料失敗：", errorMessage);
     return res.status(500).json({
       message: "取得房型資料失敗",
       detail: errorMessage,
+      raw_error: err,
     });
   }
 });
