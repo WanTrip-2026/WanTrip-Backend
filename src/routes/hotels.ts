@@ -23,7 +23,7 @@ interface RoomRawData {
   id: string;
   name: string | null;
   price: number | null;
-  capacity: number | null;
+  guest_capacity: number | null;
   image_url: string | null;
   room_type?: {
     name?: string;
@@ -174,7 +174,17 @@ router.get("/", async (req: Request, res: Response) => {
 // 取得房型
 router.get("/:id/rooms", async (req: Request, res: Response) => {
   try {
+    // 解析參數
+    const startDate = req.query.start_date
+      ? String(req.query.start_date)
+      : null;
+    const endDate = req.query.end_date ? String(req.query.end_date) : null;
+    const adults = parseInt(req.query.adults as string) || 0;
+    const roomQty = parseInt(req.query.rooms as string) || 1;
+
     const { id } = req.params;
+
+    // 1. 抓取房型基本資料
     const { data, error } = await supabase
       .from("rooms")
       .select(
@@ -182,7 +192,7 @@ router.get("/:id/rooms", async (req: Request, res: Response) => {
         id,
         name,
         price,
-        capacity,
+        guest_capacity,
         image_url,
         room_type:room_type_id (
           id,
@@ -196,15 +206,65 @@ router.get("/:id/rooms", async (req: Request, res: Response) => {
 
     if (error) throw error;
 
-    const rooms = ((data as unknown as RoomRawData[]) ?? []).map((r) => ({
-      id: r.id,
-      name: r.name ?? r.room_type?.name ?? "",
-      price: r.price ?? 0,
-      capacity: r.capacity ?? 0,
-      image_url: r.image_url ?? "",
-      details: (r.room_type?.room_details ?? []).map((d) => d.content),
-      features: [],
-    }));
+    // 2. 如果有日期，呼叫 RPC 檢查庫存
+    let availabilityMap: Record<string, number> = {};
+    if (startDate && endDate) {
+      const { data: availData, error: availError } = await supabase.rpc(
+        "get_room_availability",
+        {
+          p_hotel_id: id,
+          p_start_date: startDate,
+          p_end_date: endDate,
+        },
+      );
+
+      if (!availError && availData) {
+        (availData as { room_id: string; min_available: number }[]).forEach(
+          (item) => {
+            availabilityMap[item.room_id] = item.min_available;
+          },
+        );
+      }
+    }
+
+    const rooms = ((data as unknown as RoomRawData[]) ?? []).map((r) => {
+      // 判定狀態
+      let status = "available"; // default
+      let maxAvailable = 99; // 如果沒選日期，預設有房
+
+      // A. 容量檢查
+      if (adults > 0) {
+        const capacity = r.guest_capacity ?? 0;
+        const requiredCapacity = Math.ceil(adults / roomQty);
+        if (capacity < requiredCapacity) {
+          status = "capacity_exceeded";
+        }
+      }
+
+      // B. 庫存檢查 (如果有選日期)
+      if (startDate && endDate) {
+        const available = availabilityMap[r.id] ?? 0; // 若沒回傳代表某天沒庫存或是完全沒資料
+        maxAvailable = available;
+        if (available < roomQty) {
+          // 如果已經是 capacity_exceeded，維持原狀，否則標記為售完
+          if (status !== "capacity_exceeded") {
+            status = "sold_out";
+          }
+        }
+      }
+
+      return {
+        id: r.id,
+        name: r.name ?? r.room_type?.name ?? "",
+        price: r.price ?? 0,
+        capacity: r.guest_capacity ?? 0,
+        image_url: r.image_url ?? "",
+        details: (r.room_type?.room_details ?? []).map((d) => d.content),
+        features: [],
+        status, // 'available' | 'sold_out' | 'capacity_exceeded'
+        maxAvailable,
+      };
+    });
 
     return res.json(rooms);
   } catch (err: any) {
