@@ -14,7 +14,8 @@ export const mapToOrderDbSchema = (frontendPayload: any) => {
     contact_email: frontendPayload.userInfo?.email,
     contact_phone: frontendPayload.userInfo?.phone,
     image_url: frontendPayload.image || frontendPayload.image_url,
-    hotel_id: frontendPayload.hotel_id || null,
+    hotel_id: frontendPayload.hotel_id || null, // Ensure hotel_id is mapped
+    room_id: frontendPayload.room_id || null, // [NEW] Map room_id
     attraction_id: frontendPayload.attraction_id || null,
     created_at: new Date().toISOString(),
   };
