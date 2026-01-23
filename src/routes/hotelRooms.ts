@@ -14,7 +14,7 @@ router.get("/:id/rooms", async (req: Request, res: Response) => {
         id,
         name,
         price,
-        capacity,
+        guest_capacity,
         image_url,
         room_type:room_type_id (
           id,
@@ -43,7 +43,7 @@ router.get("/:id/rooms", async (req: Request, res: Response) => {
       id: r.id,
       name: r.name ?? r.room_type?.name ?? "",
       price: r.price ?? 0,
-      capacity: r.capacity ?? 0,
+      capacity: r.guest_capacity ?? 0,
       image_url: r.image_url ?? "",
       details: (r.room_type?.room_details ?? []).map((d: any) => d.content),
       features: [],
