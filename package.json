@@ -13,7 +13,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@supabase/supabase-js": "^2.90.1",
+    "@supabase/supabase-js": "^2.91.0",
     "axios": "^1.13.2",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
@@ -23,6 +23,7 @@
     "ecpay_aio_nodejs": "^1.2.2",
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
+    "openai": "^6.16.0",
     "uuid": "^13.0.0"
   },
   "devDependencies": {
