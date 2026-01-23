@@ -159,12 +159,14 @@ router.get("/", async (req: Request, res: Response) => {
       limit,
       hotels: hotels,
     });
-  } catch (err: unknown) {
-    const errorMessage = err instanceof Error ? err.message : "發生未知錯誤";
+  } catch (err: any) {
+    const errorMessage =
+      err instanceof Error ? err.message : JSON.stringify(err);
     console.error("❌ 取得詳細失敗：", errorMessage);
     return res.status(500).json({
       message: "取得詳細失敗",
       detail: errorMessage,
+      raw: err,
     });
   }
 });
