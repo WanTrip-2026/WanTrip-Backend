@@ -30,12 +30,12 @@ const mapItem = (item: AttractionWithImages) => {
   return {
     id: item.id,
     name: item.name || "",
-    imageUrl:
+    image_url:
       item.attraction_images?.find((img) => img.sort_order === 1)?.image_url ||
       item.attraction_images?.[0]?.image_url ||
       "https://placehold.co/400x300?text=No+Image",
     price: minPrice,
-    venue: item.city || "",
+    city: item.city || "",
     category: Array.isArray(item.category)
       ? item.category[0] || ""
       : item.category || "",
@@ -58,7 +58,7 @@ router.get("/popular", async (req, res) => {
 
     // Logic: One per different city
     const allPopular = (popularData as unknown as AttractionWithImages[]).map(
-      mapItem
+      mapItem,
     );
     const seenCities = new Set<string>();
     const distinctCityTickets: any[] = [];
@@ -66,9 +66,9 @@ router.get("/popular", async (req, res) => {
     // 1. Process Priority Items
     for (const name of PRIORITY_ATTRACTIONS) {
       const item = allPopular.find((t) => t.name === name);
-      if (item && !seenCities.has(item.venue)) {
+      if (item && !seenCities.has(item.city)) {
         distinctCityTickets.push(item);
-        seenCities.add(item.venue);
+        seenCities.add(item.city);
       }
     }
 
@@ -77,8 +77,8 @@ router.get("/popular", async (req, res) => {
       if (EXCLUDED_ATTRACTIONS.has(t.name)) continue;
       if (PRIORITY_ATTRACTIONS.includes(t.name)) continue; // Already processed
 
-      if (!seenCities.has(t.venue)) {
-        seenCities.add(t.venue);
+      if (!seenCities.has(t.city)) {
+        seenCities.add(t.city);
         distinctCityTickets.push(t);
       }
       if (distinctCityTickets.length >= 6) break;
@@ -104,7 +104,7 @@ router.get("/top-rated", async (req, res) => {
 
     // Logic: One per different category (項目)
     const allTopRated = (topRatedData as unknown as AttractionWithImages[]).map(
-      mapItem
+      mapItem,
     );
     const seenCategories = new Set<string>();
     const distinctCategoryTickets: any[] = [];
@@ -190,7 +190,7 @@ router.get("/search", async (req, res) => {
             "https://placehold.co/300x200?text=No+Image", // Search view format
           comments_count: 0,
         };
-      }
+      },
     );
 
     res.json(mappedData);
@@ -260,7 +260,7 @@ router.get("/:id", async (req, res) => {
 
       if (recData) {
         recommendations = (recData as unknown as AttractionWithImages[]).map(
-          mapItem
+          mapItem,
         );
       }
     }
