@@ -17,6 +17,9 @@ export const mapToOrderDbSchema = (frontendPayload: any) => {
     hotel_id: frontendPayload.hotel_id || null, // Ensure hotel_id is mapped
     room_id: frontendPayload.room_id || null, // [NEW] Map room_id
     attraction_id: frontendPayload.attraction_id || null,
+    quantity: Number(
+      frontendPayload.quantity || frontendPayload.peopleNum || 1,
+    ), // Map quantity
     created_at: new Date().toISOString(),
   };
 };
