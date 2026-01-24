@@ -1,5 +1,6 @@
 # Environment variables
 .env
+.env.keys
 .env.local
 .env.*.local
 
@@ -34,3 +35,7 @@ coverage/
 
 # Local temp files
 temp_orders.json
+
+# Supabase
+.branches
+.temp
