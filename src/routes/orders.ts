@@ -122,7 +122,7 @@ router.get("/:id", async (req: Request, res: Response) => {
   const responseData = { ...orderData };
 
   if (responseData.hotels) {
-    const { city, district, address, latitude, longitude } =
+    const { city, district, address, latitude, longitude, phone } =
       responseData.hotels;
     Object.assign(responseData, {
       city,
@@ -130,6 +130,7 @@ router.get("/:id", async (req: Request, res: Response) => {
       address,
       latitude,
       longitude,
+      hotel_phone: phone,
     });
     delete responseData.hotels; // Clean up nested object
   } else if (responseData.attractions) {

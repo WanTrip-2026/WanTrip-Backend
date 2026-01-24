@@ -12,10 +12,36 @@ import { OrderService } from "../services/OrderService.js";
 
 const PaymentRouter: Router = Router();
 
+import { OrderValidator } from "../services/OrderValidator.js";
+
 // 1. 取得綠界 AIO 參數
-PaymentRouter.post("/get-aio-params", (req, res) => {
+PaymentRouter.post("/get-aio-params", async (req, res) => {
   try {
     const { amount, orderId, ...orderPayload } = req.body;
+
+    // [NEW] Validation Logic
+    // We reconstruct a payload shape that validator expects
+    const validationPayload = {
+      ...orderPayload,
+      // The frontend passes 'amount' as the total price
+      orderAmount: Number(amount),
+      quantity: Number(orderPayload.quantity || orderPayload.peopleNum || 1), // Fallback logic
+      peopleNum: Number(orderPayload.peopleNum),
+      coupon: orderPayload.coupon,
+    };
+
+    const validation = await OrderValidator.validateOrder(validationPayload);
+
+    if (!validation.isValid) {
+      console.warn(`[Payment] Order validation failed: ${validation.message}`);
+      return res
+        .status(400)
+        .json({ success: false, message: validation.message });
+    }
+
+    // Use Validated Amount from Backend
+    const finalAmount = validation.pricing?.total ?? Number(amount);
+
     const tradeNo =
       orderId ||
       (() => {
@@ -32,13 +58,19 @@ PaymentRouter.post("/get-aio-params", (req, res) => {
 
     // Store the payload temporarily
     // We mix in the amount and orderId into the payload just in case
-    const fullPayload = { ...orderPayload, price: amount, order_id: tradeNo };
+    const fullPayload = {
+      ...orderPayload,
+      order_id: tradeNo,
+      orderAmount: finalAmount,
+      price: validation.pricing?.unitPrice ?? orderPayload.price,
+      pricingDetails: validation.pricing,
+    };
     tempOrderStorage.set(tradeNo, fullPayload);
     console.log(
       `[Payment] Stored temp order for ${tradeNo}. Storage size: ${tempOrderStorage.size}`,
     );
 
-    const params = getAioCheckoutParams(Number(amount), tradeNo);
+    const params = getAioCheckoutParams(finalAmount, tradeNo);
     res.json({ success: true, data: params });
   } catch (error: any) {
     console.error("Get AIO Params Error:", error);
@@ -48,8 +80,8 @@ PaymentRouter.post("/get-aio-params", (req, res) => {
 
 // Helper logic for creating/updating order
 // Now delegates to OrderService
-async function processPaymentResult(orderId: string) {
-  const result = await OrderService.processPaymentSuccess(orderId);
+async function processPaymentResult(orderId: string, paidAmount?: number) {
+  const result = await OrderService.processPaymentSuccess(orderId, paidAmount);
   return result.success;
 }
 
@@ -62,8 +94,9 @@ PaymentRouter.post("/callback", async (req: Request, res: Response) => {
   }
 
   if (payload.RtnCode === "1") {
-    console.log(`訂單 ${payload.MerchantTradeNo} 付款成功`);
-    await processPaymentResult(payload.MerchantTradeNo);
+    const paidAmount =
+      Number(payload.TradeAmt ?? payload.Amount ?? 0) || undefined;
+    await processPaymentResult(payload.MerchantTradeNo, paidAmount);
   }
 
   res.send("1|OK");
