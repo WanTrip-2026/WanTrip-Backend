@@ -23,8 +23,11 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-async function fetchAllData(tableName: string, selectQuery: string) {
-  let allData: any[] = [];
+async function fetchAllData<T>(
+  tableName: string,
+  selectQuery: string
+): Promise<T[]> {
+  let allData: T[] = [];
   let from = 0;
   let to = 999;
   let hasMore = true;
@@ -65,14 +68,14 @@ async function syncData() {
   );
 
   const allItems = [
-    ...(hotels?.map((h) => ({
+    ...(hotels.map((h) => ({
       source_id: h.id,
       source_type: "hotel",
       title: h.name,
       // 拼接描述，讓 AI 更好搜尋
       text: `飯店名稱：${h.name}。位於${h.city}${h.district}。星級：${h.star_rating}星。價格約${h.min_price}起。特色：${h.description}`,
     })) || []),
-    ...(attractions?.map((a) => ({
+    ...(attractions.map((a) => ({
       source_id: a.id,
       source_type: "attraction",
       title: a.name,
@@ -105,7 +108,7 @@ async function syncData() {
     const { error } = await supabase
       .from("travel_contents")
       .insert(rowsToInsert);
-    if (error) console.error("插入失敗:", error);
+    if (error) throw error;
 
     console.log(`已完成 ${i + batch.length} / ${allItems.length}`);
   }

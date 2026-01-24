@@ -52,7 +52,7 @@ serve(async (req: Request) => {
     const contextText =
       matchedContext
         ?.map(
-          (item: any) =>
+          (item: { source_type: string; title: string; content: string }) =>
             `- [${item.source_type}] ${item.title}: ${item.content}`
         )
         .join("\n") || "未找到相關飯店或景點資料";
@@ -77,7 +77,7 @@ serve(async (req: Request) => {
                 - 當找不到資料時，請以「平台客服」的口吻表示遺憾。
                 - 統一使用：「抱歉，我們目前沒有提供 [使用者提到的地點/飯店] 的相關資訊。」
                 - 隨後必須接上一句親切的引導，例如：「如果您想看看其他熱門景點或飯店推薦，隨時都可以問我喔！」
-            6. 一律使用繁體中文。
+            7. 一律使用繁體中文。
 
             參考資料：\n${contextText}`,
         },
