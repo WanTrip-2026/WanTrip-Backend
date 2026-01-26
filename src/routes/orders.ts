@@ -28,6 +28,22 @@ const generateOrderId = () => {
   return `${datePart}${randomPart}`;
 };
 
+// GET my orders (Logged-in User) - MUST be before /:id to avoid matching "me" as an id
+router.get("/me", requireSupabaseAuth, async (req: Request, res: Response) => {
+  const user = (req as AuthenticatedRequest).user;
+  const { data, error } = await supabase
+    .from("orders")
+    .select("*")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Supabase error (GET /me):", error);
+    return res.status(500).json({ message: "取得個人訂單失敗" });
+  }
+  res.json(data);
+});
+
 // GET single order by order_id or id (Public access allowed for confirmation page reliability)
 router.get("/:id", async (req: Request, res: Response) => {
   const { id } = req.params;
@@ -86,8 +102,9 @@ router.get("/:id", async (req: Request, res: Response) => {
   res.json(responseData);
 });
 
-// Middleware: Require Supabase Auth for all OTHER order routes
+// Middleware: Require Supabase Auth for all routes defined AFTER this point
 router.use(requireSupabaseAuth);
+
 
 // GET all orders (Admin Only)
 router.get("/", requireAdmin, async (_req: Request, res: Response) => {
@@ -98,22 +115,6 @@ router.get("/", requireAdmin, async (_req: Request, res: Response) => {
     return res.status(500).json({ message: "取得訂單資料失敗" });
   }
 
-  res.json(data);
-});
-
-// GET my orders (Logged-in User)
-router.get("/me", async (req: Request, res: Response) => {
-  const user = (req as AuthenticatedRequest).user;
-  const { data, error } = await supabase
-    .from("orders")
-    .select("*")
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false });
-
-  if (error) {
-    console.error("Supabase error (GET /me):", error);
-    return res.status(500).json({ message: "取得個人訂單失敗" });
-  }
   res.json(data);
 });
 
