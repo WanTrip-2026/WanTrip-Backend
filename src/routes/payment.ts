@@ -119,7 +119,7 @@ PaymentRouter.post("/ecpay-result", async (req: Request, res: Response) => {
   }
 
   // Redirect to frontend
-  const frontendUrl = process.env.FRONTEND_ORIGIN || "http://localhost:5173";
+  const frontendUrl = process.env.FRONTEND_ORIGIN || "http://wantrip.store";
   // We can pass the orderId or just let the frontend fetch latest.
   // Passing orderId is good for the success page to query.
   res.redirect(
