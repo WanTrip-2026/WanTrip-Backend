@@ -82,7 +82,7 @@ router.post("/linepay/request", async (req: Request, res: Response) => {
     const fullPayload = { ...orderPayload, price: amount, order_id: orderId };
     tempOrderStorage.set(orderId, fullPayload);
     console.log(`[LinePay] Stored temp order for ${orderId}`);
-    const frontendOrigin = process.env.FRONTEND_ORIGIN || "http://localhost:5173";
+    const frontendOrigin = process.env.FRONTEND_ORIGIN || "http://wantrip.store";
 
     const body: LinePayRequestBody = {
       amount: amount,
