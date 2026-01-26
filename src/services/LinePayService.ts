@@ -97,10 +97,10 @@ router.post("/linepay/request", async (req: Request, res: Response) => {
       redirectUrls: {
         confirmUrl:
           process.env.LINE_PAY_CONFIRM_URL ||
-          "http://localhost:5173/orders/completed",
+          `${process.env.FRONTEND_ORIGIN || "http://localhost:5173"}/orders/completed`,
         cancelUrl:
           process.env.LINE_PAY_CANCEL_URL ||
-          "http://localhost:5173/orders/checkout",
+          `${process.env.FRONTEND_ORIGIN || "http://localhost:5173"}/orders/checkout`,
       },
     };
 
