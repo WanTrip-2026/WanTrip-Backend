@@ -43,6 +43,7 @@ router.get("/", async (req: Request, res: Response) => {
     const rooms = parseInt(req.query.rooms as string, 10) || 0;
     const minPrice = parseInt(req.query.min_price as string, 10) || 0;
     const maxPrice = parseInt(req.query.max_price as string, 10) || 1000000;
+    const sortBy = (req.query.sort_by as string | undefined)?.trim() || null;
 
     const hasPriceFilter =
       req.query.min_price !== undefined || req.query.max_price !== undefined;
@@ -94,6 +95,7 @@ router.get("/", async (req: Request, res: Response) => {
         p_max_price: maxPrice,
         p_page: page,
         p_limit: limit,
+        p_sort_by: sortBy,
       },
     );
 
@@ -151,6 +153,11 @@ router.get("/", async (req: Request, res: Response) => {
           featureImage ||
           "https://res.cloudinary.com/wantrip/image/upload/v1767939338/%E9%A3%AF%E5%BA%97%E9%A6%96%E5%9C%96_dualwy.jpg",
       };
+    });
+
+    // 6. 依照 RPC 回傳順序重新排序
+    hotels.sort((a, b) => {
+      return hotelIds.indexOf(a.id) - hotelIds.indexOf(b.id);
     });
 
     return res.json({
