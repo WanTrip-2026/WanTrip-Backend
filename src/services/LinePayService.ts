@@ -82,6 +82,7 @@ router.post("/linepay/request", async (req: Request, res: Response) => {
     const fullPayload = { ...orderPayload, price: amount, order_id: orderId };
     tempOrderStorage.set(orderId, fullPayload);
     console.log(`[LinePay] Stored temp order for ${orderId}`);
+    const frontendOrigin = process.env.FRONTEND_ORIGIN || "http://localhost:5173";
 
     const body: LinePayRequestBody = {
       amount: amount,
@@ -97,10 +98,10 @@ router.post("/linepay/request", async (req: Request, res: Response) => {
       redirectUrls: {
         confirmUrl:
           process.env.LINE_PAY_CONFIRM_URL ||
-          `${process.env.FRONTEND_ORIGIN || "http://localhost:5173"}/orders/completed`,
+          `${frontendOrigin}/orders/completed`,
         cancelUrl:
           process.env.LINE_PAY_CANCEL_URL ||
-          `${process.env.FRONTEND_ORIGIN || "http://localhost:5173"}/orders/checkout`,
+          `${frontendOrigin}/orders/checkout`,
       },
     };
 
