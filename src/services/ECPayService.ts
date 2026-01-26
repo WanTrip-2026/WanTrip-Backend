@@ -60,14 +60,14 @@ export const getAioCheckoutParams = (amount: number, tradeNo: string) => {
     ItemName: "WanTrip訂房服務",
     ReturnURL:
       process.env.ECPAY_RETURN_URL ||
-      "http://localhost:3000/api/payment/callback",
+      "https://wantrip-backend.onrender.com/api/payment/callback",
     ChoosePayment: "ALL",
     EncryptType: "1",
     ClientBackURL:
-      process.env.ECPAY_BACK_URL || "http://localhost:5173/orders/checkout",
+      process.env.ECPAY_BACK_URL || "http://wantrip.store/orders/checkout",
     OrderResultURL:
       process.env.ECPAY_ORDER_RESULT_URL ||
-      "http://localhost:3000/api/payment/ecpay-result",
+      "https://wantrip-backend.onrender.com/api/payment/ecpay-result",
   };
 
   return {
