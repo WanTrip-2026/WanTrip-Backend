@@ -27,7 +27,15 @@ serve(async (req: Request) => {
       .map((m) => m.content)
       .join(" ");
 
-    console.log("--- [DEBUG] 1. 強化搜尋字串:", lastTwoMessages);
+    if (!lastTwoMessages.trim()) {
+      return new Response(
+        JSON.stringify({ error: "找不到可供搜尋的使用者問題。" }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
 
     // 【修正點】先初始化變數，才能給下面使用
     const supabase = createClient(
@@ -36,15 +44,12 @@ serve(async (req: Request) => {
     );
     const openai = new OpenAI({ apiKey: Deno.env.get("OPENAI_API_KEY")! });
 
-    console.log("--- [DEBUG] 2. 開始 Embedding...");
     const embeddingRes = await openai.embeddings.create({
       model: "text-embedding-3-small",
       input: lastTwoMessages, // 用合併後的字串去搜尋
     });
     const [{ embedding }] = embeddingRes.data;
-    console.log("--- [DEBUG] 3. Embedding 完成");
 
-    console.log("--- [DEBUG] 4. 開始資料庫 RPC 檢索...");
     const { data: matchedContext, error: rpcError } = await supabase.rpc(
       "match_travel_contents",
       {
@@ -55,10 +60,8 @@ serve(async (req: Request) => {
     );
 
     if (rpcError) {
-      console.error("--- [DEBUG] RPC 錯誤:", rpcError);
       throw rpcError;
     }
-    console.log("--- [DEBUG] 5. 檢索完成，找到筆數:", matchedContext?.length);
 
     // 格式化參考內容
     const contextText =
@@ -69,7 +72,6 @@ serve(async (req: Request) => {
         )
         .join("\n") || "未找到相關飯店或景點資料";
 
-    console.log("--- [DEBUG] 6. 開始呼叫 GPT-4o-mini...");
     const completionMessages = [
       {
         role: "system",
@@ -100,7 +102,7 @@ serve(async (req: Request) => {
 
             參考資料：\n${contextText}`,
       },
-      ...messages,
+      ...messages.slice(-10),
     ];
 
     const chatCompletion = await openai.chat.completions.create({
@@ -110,13 +112,10 @@ serve(async (req: Request) => {
     });
 
     const answer = chatCompletion.choices[0].message.content;
-    console.log("--- [DEBUG] 7. AI 回答生成成功");
-
     return new Response(JSON.stringify({ answer }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
-    console.error("--- [DEBUG] 發生錯誤:", err.message);
     return new Response(JSON.stringify({ error: err.message }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
