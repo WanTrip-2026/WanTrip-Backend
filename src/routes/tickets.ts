@@ -135,7 +135,15 @@ router.get("/search", async (req, res) => {
       .select("*, attraction_images(image_url, sort_order), tickets(price)");
 
     if (keyword) {
-      query = query.ilike("name", `%${keyword}%`);
+      if (keyword === "遊樂園") {
+        query = query.or(
+          "name.ilike.%遊樂%,name.ilike.%樂園%,name.ilike.%九族%",
+        );
+      } else if (keyword === "步道健行") {
+        query = query.or("name.ilike.%步道%,name.ilike.%司馬庫斯%");
+      } else {
+        query = query.ilike("name", `%${keyword}%`);
+      }
     }
 
     if (cities) {
